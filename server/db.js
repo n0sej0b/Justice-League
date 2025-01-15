@@ -1,86 +1,134 @@
 const pg = require('pg');
-const client = new pg.Client('postgres://postgres@localhost');
+const client = new pg.Client({
+  user: 'postgres',
+  password: '',
+  host: 'localhost',
+  port: 5432,
+  database: 'justice_league_reviews_db',
+});
+
 const uuid = require('uuid');
 const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const dotenv = require('dotenv');
 
-const createTables = async() => {
-  try {
-    const SQL = `
-      DROP TABLE IF EXISTS users CASCADE;
-      DROP TABLE IF EXISTS heroes CASCADE;
 
-      CREATE TABLE users(
-          id UUID PRIMARY KEY,
-          username VARCHAR(100) UNIQUE NOT NULL,
-          email VARCHAR(100) UNIQUE NOT NULL,
-          password VARCHAR(100) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+dotenv.config();
 
-      CREATE TABLE heroes(
-          id UUID PRIMARY KEY,
-          name VARCHAR(100) UNIQUE NOT NULL,
-          price DECIMAL(10,2) NOT NULL,
-          description TEXT,
-          image VARCHAR(255),
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
-    `;
-    await client.query(SQL);
-  } catch (error) {
-    console.error('Error creating tables:', error);
-    throw error;
+const JWT_SECRET = process.env.JWT_SECRET || 'secrettoken';
+
+
+const connect = async () => {
+  if (!client._connected) {
+    await client.connect();
   }
+  return client;
 };
 
-const createUser = async({ username, password, email }) => {
+
+
+
+
+const createTables = async () => {
+  const client = await connect();
   try {
-    const SQL = `
-      INSERT INTO users(id, username, password, email) 
-      VALUES($1, $2, $3, $4) 
-      RETURNING id, username, email
-    `;
-    const hashedPassword = await bcrypt.hash(password, 10); // Increased salt rounds for better security
-    const response = await client.query(SQL, [
-      uuid.v4(),
-      username,
-      hashedPassword,
-      email
-    ]);
+    await client.query('BEGIN');
+    await client.query(`DROP TABLE IF EXISTS users, heroes CASCADE`);
+    await client.query(`CREATE TABLE users(
+      id UUID PRIMARY KEY,
+      username VARCHAR(100) UNIQUE NOT NULL,
+      password VARCHAR(100) NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    await client.query(`CREATE TABLE heroes(
+      id UUID PRIMARY KEY,
+      name VARCHAR(100) UNIQUE NOT NULL,
+      price DECIMAL(10,2) NOT NULL,
+      description TEXT,
+      image VARCHAR(255),
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )`);
+    
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS users_username_idx ON users(username);
+      CREATE INDEX IF NOT EXISTS heroes_name_idx ON heroes(name);
+    `);
+    
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } 
+};
+
+// Function to create a user
+const createUser = async ({ username, password }) => {
+  if (!username || !password) {
+    throw new Error('Username, password');
+  }
+  const createUserStatement = {
+    name: 'create-user',
+    text: `INSERT INTO users(id, username, password) 
+           VALUES($1, $2, $3) 
+           RETURNING id, username`
+  };
+  const client = await connect();
+  try {
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const values = [uuid.v4(), username, hashedPassword];
+    const response = await client.query(createUserStatement, values);
     return response.rows[0];
   } catch (error) {
-    console.error('Error creating user:', error);
+    if (error.code === '23505') {
+      throw new Error('Username or email already exists');
+    }
     throw error;
   }
 };
 
-const HeroesList = () => {
-  const items = [
-      {id: 1, name: 'Aquaman'},
-      {id: 2, name: 'Bane'},
-      {id: 3, name: 'Batman'},
-      {id: 4, name: 'Brainiac'},
-      {id: 5, name: 'Canary'},
-      {id: 6, name: 'Darkseid'},
-      {id: 7, name: 'Flash'},
-      {id: 8, name: 'Greenlantern'},
-      {id: 9, name: 'HawkGirl'},
-      {id: 10, name: 'Joker'},
-      {id: 11, name: 'Lobo'},
-      {id: 12, name: 'NightWing'},
-      {id: 13, name: 'SolomonGrundy'},
-      {id: 14, name: 'Superman'},
-      {id: 15, name: 'Vixen'},
-      {id: 16, name: 'WonderWoman'}
-  ];
-  
-  return items;
+// Function to insert initial heroes
+const insertInitialHeroes = async () => {
+  const client = await connect();
+  try {
+    const heroes = [
+      { name: 'Aquaman', image: '/assets/images/Aquaman.jpg' },
+      { name: 'Bane', image: '/assets/images/Bane.jpg' },
+      { name: 'Batman', image: '/assets/images/Batman.jpg' },
+      { name: 'Brainiac', image: '/assets/images/Brainiac.jpg' },
+      { name: 'Canary', image: '/assets/images/Canary.jpg' },
+      { name: 'Darkseid', image: '/assets/images/Darkseid.jpg' },
+      { name: 'Flash', image: '/assets/images/Flash.jpg' },
+      { name: 'Greenlantern', image: '/assets/images/Greenlantern.jpg' },
+      { name: 'HawkGirl', image: '/assets/images/HawkGirl.jpg' },
+      { name: 'Joker', image: '/assets/images/Joker.jpg' },
+      { name: 'Lobo', image: '/assets/images/Lobo.jpg' },
+      { name: 'NightWing', image: '/assets/images/NightWing.jpg' },
+      { name: 'SolomonGrundy', image: '/assets/images/SolomonGrundy.jpg' },
+      { name: 'Superman', image: '/assets/images/Superman.jpg' },
+      { name: 'Vixen', image: '/assets/images/Vixen.jpg' },
+      { name: 'WonderWoman', image: '/assets/images/WonderWoman.jpg' }
+    ];
+    console.log(heroes)
+    const values = heroes.map(hero =>
+      `('${uuid.v4()}', '${hero.name}', 0.00, '', '${hero.image}')`
+    ).join(',');
+    
+    await client.query(`
+      INSERT INTO heroes (id, name, price, description, image)
+      VALUES ${values}
+      ON CONFLICT (name) DO NOTHING
+    `);
+  } catch(ex){
+    next(ex);
+  }
 };
 
-const fetchUsers = async() => {
+
+const fetchUsers = async () => {
+  const client = await connect();
   try {
     const SQL = `
-      SELECT id, username, email, created_at
+      SELECT id, username, created_at
       FROM users
       ORDER BY created_at DESC
     `;
@@ -89,11 +137,36 @@ const fetchUsers = async() => {
   } catch (error) {
     console.error('Error fetching users:', error);
     throw error;
-  }
+  } 
 };
 
+const fetchHeroes = async () => {
+  const client = await connect();
+  try {
+    const SQL = `
+      SELECT id, image, created_at
+      FROM heroes
+      ORDER BY created_at DESC
+    `;
+    const response = await client.query(SQL);
+    return response.rows;
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    throw error;
+  } 
+};
+
+
+process.on('SIGINT', async () => {
+  await client.end(); 
+  process.exit(0);
+});
+
 module.exports = {
+  client,
   createTables,
   createUser,
   fetchUsers,
+  insertInitialHeroes,
+  fetchHeroes,
 };

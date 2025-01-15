@@ -59,7 +59,7 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="navbar-brand">
         <Link to="/" className="navbar-logo">
-          <img style={{ fontSize: "28px", backgroundColor: "#333", textAlign: "center", width: '100px',height: '100px' }} src="https://scontent-den2-1.xx.fbcdn.net/v/t39.30808-6/472147714_10225659412623759_824961458460316489_n.jpg?_nc_cat=111&ccb=1-7&_nc_sid=f727a1&_nc_ohc=cBJ4vO1lx8UQ7kNvgHwHh0y&_nc_zt=23&_nc_ht=scontent-den2-1.xx&_nc_gid=ATcLUVHDyg7BU8PAKzrPdpk&oh=00_AYAJZEYzb23sAnWE15xBhdEN3RMa5EnrwANCYXEZJmnDpA&oe=6783DFEC" alt="" />
+          <img style={{ fontSize: "28px", backgroundColor: "#333", textAlign: "center", width: '100px',height: '100px' }} src="" alt="" />
         </Link>
      
       </div>
