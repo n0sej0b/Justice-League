@@ -1,0 +1,250 @@
+/* Main container styles */
+.requests-container {
+    padding: 2rem;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  
+  .requests-container h1 {
+    text-align: center;
+    color: #333;
+    margin-bottom: 2rem;
+  }
+  
+  /* Hero grid styles */
+  .heroes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 2rem;
+    padding: 1rem;
+  }
+  
+  .hero-card {
+    background: white;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+    cursor: pointer;
+  }
+  
+  .hero-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  }
+  
+  .hero-card img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+  }
+  
+  .hero-card h3 {
+    padding: 1rem;
+    margin: 0;
+    text-align: center;
+    color: #333;
+  }
+  
+  /* Selected hero banner styles */
+  .selected-hero-banner {
+    display: flex;
+    align-items: center;
+    padding: 1.5rem;
+    background: linear-gradient(to right, #f8f9fa, #e9ecef);
+    border-radius: 10px;
+    margin-bottom: 2rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+  }
+  
+  .selected-hero-banner img {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    margin-right: 1.5rem;
+    border: 3px solid white;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+  
+  .selected-hero-banner h2 {
+    flex-grow: 1;
+    margin: 0;
+    color: #333;
+  }
+  
+  .change-hero-btn {
+    padding: 0.75rem 1.5rem;
+    background-color: #6c757d;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .change-hero-btn:hover {
+    background-color: #5a6268;
+  }
+  
+  /* Request form styles */
+  .request-form-section {
+    max-width: 800px;
+    margin: 0 auto;
+  }
+  
+  .request-form {
+    background: white;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  
+  .form-group {
+    margin-bottom: 1.5rem;
+  }
+  
+  .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    color: #495057;
+    font-weight: 500;
+  }
+  
+  .form-group input,
+  .form-group textarea,
+  .form-group select {
+    width: 100%;
+    padding: 0.75rem;
+    border: 1px solid #ced4da;
+    border-radius: 5px;
+    font-size: 1rem;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .form-group input:focus,
+  .form-group textarea:focus,
+  .form-group select:focus {
+    outline: none;
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  }
+  
+  .form-group textarea {
+    min-height: 120px;
+    resize: vertical;
+  }
+  
+  /* Urgency select styling */
+  .form-group select {
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='red' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+    background-size: 1em;
+  }
+  
+  /* Submit button styling */
+  .submit-button {
+    display: block;
+    width: 100%;
+    padding: 1rem;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    font-size: 1rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+  }
+  
+  .submit-button:hover {
+    background-color: #0056b3;
+  }
+  
+  .submit-button:focus {
+    outline: none;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .requests-container {
+      padding: 1rem;
+    }
+  
+    .heroes-grid {
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 1rem;
+    }
+  
+    .selected-hero-banner {
+      flex-direction: column;
+      text-align: center;
+    }
+  
+    .selected-hero-banner img {
+      margin-right: 0;
+      margin-bottom: 1rem;
+    }
+  
+    .selected-hero-banner h2 {
+      margin-bottom: 1rem;
+    }
+  
+    .request-form {
+      padding: 1.5rem;
+    }
+  }
+  
+  /* Error state styling */
+  .form-group.error input,
+  .form-group.error textarea,
+  .form-group.error select {
+    border-color: #dc3545;
+  }
+  
+  .error-message {
+    color: #dc3545;
+    font-size: 0.875rem;
+    margin-top: 0.25rem;
+  }
+  
+  /* Success state styling */
+  .form-group.success input,
+  .form-group.success textarea,
+  .form-group.success select {
+    border-color: #28a745;
+  }
+  
+  /* Loading state */
+  .loading {
+    opacity: 0.7;
+    pointer-events: none;
+  }
+  
+  .submit-button.loading {
+    position: relative;
+  }
+  
+  .submit-button.loading::after {
+    content: '';
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin: -10px 0 0 -10px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 0.8s infinite linear;
+  }
+  
+  @keyframes spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  

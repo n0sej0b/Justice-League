@@ -144,7 +144,7 @@ const fetchHeroes = async () => {
   const client = await connect();
   try {
     const SQL = `
-      SELECT id, image, created_at
+      SELECT id, name, image, created_at
       FROM heroes
       ORDER BY created_at DESC
     `;

@@ -94,8 +94,8 @@ const Navbar = () => {
                 <form className="login-form" onSubmit={handleLogin}>
                   <input
                     type="email"
-                    name="email"
-                    placeholder="Email"
+                    name="Username/Email"
+                    placeholder="Username/Email"
                     value={loginData.email}
                     onChange={handleInputChange}
                     required
