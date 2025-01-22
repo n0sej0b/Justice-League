@@ -1,5 +1,5 @@
-// src/App.js
-import {useState} from 'react';
+// src/App.jsx
+import { useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Home from './components/Home';
@@ -21,13 +21,12 @@ function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/heroes" element={<Heroes />} />
+          <Route path="/heroes" element={<Heroes isLoggedIn={isLoggedIn} user={user} />} />
           <Route path="/live-chat" element={
             <ProtectedRoute isLoggedIn={isLoggedIn}>
               <LiveChat user={user} />
             </ProtectedRoute>
-          } 
-        />
+          } />
           <Route path="/requests" element={<Requests />} />
         </Routes>
       </div>

@@ -1,88 +1,127 @@
-import { useState } from "react";
+import { useState } from "react"; // Removed unused useEffect
 import { useNavigate } from "react-router-dom";
+import { createUser } from "../API/Index";
 
 function Register() {
+  const [error, setError] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false); // Add loading state
   const [formData, setFormData] = useState({
-    name: "",
+    username: "", 
     email: "",
     password: "",
     confirmPassword: "",
   });
-  const [error, setError] = useState("");
+  
+  
   
   const navigate = useNavigate();
+
+  // Enhanced password validation
+  const validatePassword = (password) => {
+    const minLength = 8;
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumbers = /\d/.test(password);
+    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
+
+    if (password.length < minLength) {
+      return "Password must be at least 8 characters long";
+    }
+    if (!hasUpperCase || !hasLowerCase) {
+      return "Password must contain both uppercase and lowercase letters";
+    }
+    if (!hasNumbers) {
+      return "Password must contain at least one number";
+    }
+    if (!hasSpecialChar) {
+      return "Password must contain at least one special character";
+    }
+    return null;
+  };
+
+  // Enhanced email validation
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: value,
+      [name]: value.trim(), // Trim whitespace
     }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    setError("");
-
-    // Basic form validation
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match!");
-      
-      return;
-    }
-
-    if (!formData.name || !formData.email || !formData.password) {
-      setError("All fields are required!");
-      
-      return;
-    }
-
+    setError(null);
+    setIsSubmitting(true);
+  
     try {
-      const response = await fetch(
-        "",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            firstname: formData.name,
-            lastname: formData.name,
-            email: formData.email,
-            password: formData.password,
-          }),
-        }
-      );
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Redirect to login page on successful registration
-        navigate("/");
-      } else {
-        setError(data.message || "Failed to register. Please try again.");
+      // Validate all fields are filled
+      if (!formData.username || !formData.email || !formData.password || !formData.confirmPassword) {
+        throw new Error("All fields are required");
       }
+  
+      // Validate email format
+      if (!validateEmail(formData.email)) {
+        throw new Error("Please enter a valid email address");
+      }
+  
+      // Validate passwords match
+      if (formData.password !== formData.confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+  
+      // Validate password strength
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) {
+        throw new Error(passwordError);
+      }
+  
+      // Create new user
+      const response = await createUser({
+        username: formData.username.trim(),
+        email: formData.email.toLowerCase().trim(),
+        password: formData.password,
+      });
+      
+      
+  
+      if (!response) {
+        throw new Error("Registration failed");
+      }
+  
+      navigate("/login");
     } catch (err) {
-      setError("Something went wrong! Please try again.");
-    } 
+      setError(err.message || "Registration failed. Please try again.");
+      console.error("Registration error:", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
+  
 
   return (
     <div className="register-container">
       <h1>Create an Account</h1>
       <form onSubmit={handleSubmit} className="register-form">
-        <div className="form-group">
-          <label htmlFor="name">Name:</label>
-          <input
-            type="text"
-            id="name"
-            name="name"
-            value={formData.name}
-            onChange={handleChange}
-            required
-          />
-        </div>
+      <div className="form-group">
+  <label htmlFor="username">Username:</label>
+  <input
+    type="text"
+    id="username"
+    name="username"  
+    value={formData.username}  
+    onChange={handleChange}
+    required
+    minLength={2}
+    maxLength={50}
+    disabled={isSubmitting}
+  />
+</div>
+
         <div className="form-group">
           <label htmlFor="email">Email:</label>
           <input
@@ -92,6 +131,7 @@ function Register() {
             value={formData.email}
             onChange={handleChange}
             required
+            disabled={isSubmitting}
           />
         </div>
         <div className="form-group">
@@ -103,7 +143,13 @@ function Register() {
             value={formData.password}
             onChange={handleChange}
             required
+            disabled={isSubmitting}
+            aria-describedby="password-requirements"
           />
+          <small id="password-requirements">
+            Password must be at least 8 characters long and contain uppercase, lowercase, 
+            numbers, and special characters.
+          </small>
         </div>
         <div className="form-group">
           <label htmlFor="confirmPassword">Confirm Password:</label>
@@ -114,12 +160,18 @@ function Register() {
             value={formData.confirmPassword}
             onChange={handleChange}
             required
+            disabled={isSubmitting}
           />
         </div>
-        <button type="submit" className="submit-button">Register
+        <button 
+          type="submit" 
+          className="submit-button"
+          disabled={isSubmitting}
+        >
+          {isSubmitting ? "Registering..." : "Register"}
         </button>
       </form>
-      {error && <div className="error-message">{error}</div>}
+      {error && <div className="error-message" role="alert">{error}</div>}
     </div>
   );
 }
