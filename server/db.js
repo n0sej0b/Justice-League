@@ -378,19 +378,51 @@ const authenticateUser = async ({ email, password }) => {
 
 
 const fetchUsers = async () => {
-  const client = await connect();
   try {
-    const SQL = `
-      SELECT id, username, created_at
+    const { rows } = await client.query(`
+      SELECT id, username, email 
       FROM users
-      ORDER BY created_at DESC
-    `;
-    const response = await client.query(SQL);
-    return response.rows;
+    `);
+    return rows;
   } catch (error) {
-    console.error('Error fetching users:', error);
+    console.error('Error in fetchUsers:', error);
     throw error;
-  } 
+  }
+};
+
+const fetchUserById = async (userId) => {
+  try {
+    const { rows: [user] } = await client.query(`
+      SELECT 
+        users.id,
+        users.username,
+        users.email,
+        json_agg(
+          json_build_object(
+            'id', reviews.id,
+            'rating', reviews.rating,
+            'reviewText', reviews.review_text,
+            'createdAt', reviews.created_at
+          )
+        ) as "Reviews"
+      FROM users
+      LEFT JOIN reviews ON users.id = reviews.user_id
+      WHERE users.id = $1
+      GROUP BY users.id
+    `, [userId]);
+
+    if (!user) return null;
+    
+    // If no reviews, set Reviews to empty array instead of null
+    if (user.Reviews[0] === null) {
+      user.Reviews = [];
+    }
+    
+    return user;
+  } catch (error) {
+    console.error('Error in fetchUserById:', error);
+    throw error;
+  }
 };
 
 const fetchHeroes = async () => {
@@ -417,6 +449,7 @@ process.on('SIGINT', async () => {
 
 module.exports = {
   client,
+  fetchUserById,
   createTables,
   createUser,
   authenticateUser,

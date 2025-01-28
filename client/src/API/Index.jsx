@@ -22,33 +22,21 @@ export async function getHeroes() {
 }
 
 
-export async function fetchUsers() {
+export const fetchUsers = async () => {
     try {
-        console.log('Calling API URL:', `/api/users`);
-
-        const response = await fetch(`/api/users`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        console.log('Response status:', response.status);
-        console.log('Response headers:', Object.fromEntries(response.headers.entries()));
-
-        if (!response.ok) {
-            const text = await response.text();
-            console.log('Error response body:', text);
-            throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
-        }
-        
-        const data = await response.json();
-        return data;
-    } catch(error) {
-        console.error('Error fetching users:', error);
-        throw error;
+      const response = await fetch('/api/users');
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response body:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${JSON.stringify(errorData)}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching users:', error);
+      throw error;
     }
-}
+  };
+
 
 
 
@@ -246,3 +234,20 @@ export async function updateReview(userToken, reviewId, updates) {
         throw error;
     }
 }
+
+export const getUserProfile = async (userId) => {
+    try {
+      const response = await fetch(`/api/users/${userId}`);
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error response body:', errorData);
+        throw new Error(`HTTP error! status: ${response.status}, body: ${JSON.stringify(errorData)}`);
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching user profile:', error);
+      throw error;
+    }
+  };
+
+

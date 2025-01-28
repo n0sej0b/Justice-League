@@ -5,7 +5,8 @@ import Navbar from './components/Navbar';
 import Home from './components/Home';
 import Register from './components/Register';
 import Heroes from './components/Heroes';
-import LiveChat from './components/Live Chat';
+import UserProfile from './components/Profile';
+import LiveChat from './components/LiveChat';
 import Requests from './components/Requests';
 import ProtectedRoute from './components/ProtectedRoute';
 import './App.css';
@@ -27,6 +28,8 @@ function App() {
               <LiveChat user={user} />
             </ProtectedRoute>
           } />
+          <Route path="/profile" element={<UserProfile />} /> {/* Generic profile route */}
+          <Route path="/profile/:userId" element={<UserProfile />} /> {/* Specific user profile route */}
           <Route path="/requests" element={<Requests />} />
         </Routes>
       </div>

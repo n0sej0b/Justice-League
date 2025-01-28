@@ -22,6 +22,17 @@ const Navbar = () => {
       setIsLoggedIn(true);
     }
   };
+ 
+  function Navigation({ currentUser }) {
+    return (
+      <nav>
+        {/* Other navigation items */}
+        {currentUser && (
+          <Link to={`/profile/${currentUser.id}`}>My Profile</Link>
+        )}
+      </nav>
+    );
+  }
   
 
   useEffect(() => {
@@ -153,9 +164,25 @@ const Navbar = () => {
       </div>
 
       <ul className={`navbar-menu ${isOpen ? 'active' : ''}`}>
-        <li className="navbar-item">
-          <Link to="/" className="navbar-link">Home</Link>
-        </li>
+      <li className="navbar-item">
+      {isLoggedIn ? (
+    <Link to={`/profile/${user?.id}`} className="navbar-link">Profile</Link>
+  ) : (
+    <div className="login-prompt-container">
+      <div 
+        className="navbar-link" 
+        onClick={() => setShowLoginForm(true)}
+      >
+        Profile
+      </div>
+      {!isLoggedIn && (
+        <div className="login-required-message">
+          Please log in to view your profile
+        </div>
+      )}
+    </div>
+  )}
+</li>
         <li className="navbar-item">
           <Link to="/heroes" className="navbar-link">Heroes</Link>
         </li>

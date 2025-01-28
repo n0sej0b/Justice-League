@@ -1,156 +1,188 @@
-/* src/components/Navbar.css */
 .navbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   padding: 1rem 2rem;
-  background-color: #2c3e50;
-  color: white;
-  transition: all 0.3s ease;
-  top: 0;
-  left: 0;
-  right: 0;
-  z-index: 1000;
+  background-color: #ffffff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
 }
 
-.navbar.sticky {
+.navbar-brand {
+  font-size: 1.5rem;
+  font-weight: bold;
+}
+
+.logo {
+  color: #007bff;
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+.logo:hover {
+  color: #0056b3;
+}
+
+.navbar-menu {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.nav-link {
+  color: #333;
+  text-decoration: none;
+  padding: 0.5rem;
+  transition: color 0.3s ease;
+}
+
+.nav-link:hover {
+  color: #007bff;
+}
+
+.nav-button {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.login-button {
+  background-color: #007bff;
+  color: white;
+}
+
+.login-button:hover {
+  background-color: #0056b3;
+}
+
+.logout-button {
+  background-color: #dc3545;
+  color: white;
+}
+
+.logout-button:hover {
+  background-color: #c82333;
+}
+
+/* Modal Styles */
+.modal-overlay {
   position: fixed;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 1000;
-  background-color: rgba(44, 62, 80, 0.95); /* Optional: makes the navbar slightly transparent */
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); /* Optional: adds a subtle shadow */
-}
-
-body {
-  margin: 0;
-  padding-top: 0; /* Remove the padding if using the scroll-based sticky navbar */
-}
-.navbar ul {
-  list-style-type: none;
-  margin: 0;
-  padding: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
   display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
 }
 
-.navbar li {
-  margin: 0 15px;
-}
-
-.navbar a {
-  color: white;
-  text-decoration: none;
-  font-size: 18px;
-}
-
-.navbar a:hover {
-  color: #ff6347;
-  transition: color 0.3s ease-in-out;
-}
-
-
-.login-section {
-  margin-left: auto;
-  position: relative;
-}
-
-.login-container {
-  position: relative;
+.modal-content {
+  background-color: white;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 400px;
 }
 
 .login-form {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  background-color: white;
-  padding: 1rem;
-  border-radius: 4px;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.form-group {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  min-width: 250px;
-  z-index: 1000;
 }
 
-.login-form input {
+.form-group label {
+  font-weight: 500;
+}
+
+.form-group input {
   padding: 0.5rem;
   border: 1px solid #ddd;
   border-radius: 4px;
-  font-size: 0.9rem;
 }
 
-.login-form input:focus {
-  outline: none;
-  border-color: #3498db;
+.error-message {
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 0.5rem;
 }
 
-.login-button {
-  background-color: #3498db;
+.modal-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.btn-primary {
+  background-color: #007bff;
   color: white;
   padding: 0.5rem 1rem;
-  border-radius: 4px;
   border: none;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 1rem;
-  transition: background-color 0.3s ease;
 }
 
-.login-button:hover {
-  background-color: #2980b9;
-}
-
-.login-submit {
-  background-color: #2ecc71;
+.btn-secondary {
+  background-color: #6c757d;
   color: white;
-  padding: 0.5rem;
+  padding: 0.5rem 1rem;
   border: none;
   border-radius: 4px;
   cursor: pointer;
-  font-size: 0.9rem;
-  transition: background-color 0.3s ease;
 }
 
-.login-submit:hover {
-  background-color: #27ae60;
-}
-
-/* Update mobile styles */
+/* Responsive Design */
 @media (max-width: 768px) {
-  .login-section {
-    margin: 0;
+  .navbar {
+    padding: 1rem;
   }
 
-  .login-form {
-    position: static;
-    width: 100%;
-    box-shadow: none;
-    padding: 0.5rem 0;
+  .navbar-menu {
+    gap: 1rem;
   }
 
-  .login-container {
-    width: 100%;
-  }
-
-  .login-button {
-    width: 100%;
-    margin-bottom: 0.5rem;
+  .modal-content {
+    margin: 1rem;
+    padding: 1rem;
   }
 }
-
-/* Optional: Add animation for the login form */
-@keyframes slideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.login-prompt-container {
+  position: relative;
+  display: inline-block;
 }
 
-.login-form {
-  animation: slideDown 0.3s ease;
+.login-required-message {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 8px 12px;
+  border-radius: 4px;
+  font-size: 14px;
+  white-space: nowrap;
+  z-index: 1000;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  margin-top: 5px;
 }
+
+.login-required-message::before {
+  content: '';
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  transform: translateX(-50%);
+  border-width: 0 5px 5px;
+  border-style: solid;
+  border-color: transparent transparent #f8d7da;
+}
+

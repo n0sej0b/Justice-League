@@ -1,11 +1,12 @@
-const { client, createTables, createUser, fetchUsers, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
+const { client, createTables, createUser, fetchUsers, fetchUserById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
+
 const express = require('express');
 const app = express(); 
 const cors = require('cors');
 const jwt = require('jsonwebtoken'); 
 const { JWT_SECRET } = process.env; 
 const bcrypt = require('bcrypt');
-
+const router = express.Router();
 
 // Middleware
 app.use(cors({
@@ -15,8 +16,6 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json()); 
-
-
 
 const path = require('path');
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../client/dist/index.html')));
@@ -64,6 +63,22 @@ app.post('/api/reviews', authenticateToken, async (req, res) => {
   }
 });
 
+router.get('/api/users/:userId', async (req, res) => {
+  console.log('Attempting to fetch user with ID:', req.params.userId);
+  try {
+    const user = await fetchUserById(req.params.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json(user);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 app.get('/api/heroes/:heroId/reviews', async (req, res) => {
   try {
     const { heroId } = req.params;
@@ -95,19 +110,16 @@ app.delete('/api/reviews/:reviewId', authenticateToken, async (req, res) => {
   }
 });
 
-app.options('*', cors()); // Enable pre-flight for all routes
-
-// User routes
-app.get('/api/users', async (req, res, next) => {
+router.get('/api/users', async (req, res) => {
   try {
     const users = await fetchUsers();
-    res.send(users);
-  } catch (ex) {
-    next(ex);
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
 
-// In your Index.jsx or auth route handler
 app.post('/api/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -118,7 +130,6 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Use the authenticateUser function from your db.js
     const user = await authenticateUser({ email, password });
 
     if (!user) {
@@ -127,7 +138,6 @@ app.post('/api/login', async (req, res) => {
       });
     }
 
-    // Generate JWT token
     const token = jwt.sign(
       { 
         userId: user.id, 
@@ -137,7 +147,6 @@ app.post('/api/login', async (req, res) => {
       { expiresIn: '1h' }
     );
 
-    // Send successful response
     res.status(200).json({
       success: true,
       token,
@@ -157,18 +166,10 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-// Add this POST route for user creation
 app.post('/api/users', async (req, res) => {
   try {
     const { username, email, password } = req.body;
     
-    // Use the createUser function you already have imported from db.js
     const user = await createUser({ 
       username, 
       email, 
@@ -184,8 +185,6 @@ app.post('/api/users', async (req, res) => {
   }
 });
 
-
-// Authentication route
 app.post('/api/auth', async (req, res, next) => {
   try {
     const user = await authenticateUser(req.body);
@@ -195,7 +194,6 @@ app.post('/api/auth', async (req, res, next) => {
   }
 });
 
-// Heroes route
 app.get('/api/heroes', async (req, res, next) => {
   try {
     const heroes = await fetchHeroes();
@@ -205,19 +203,8 @@ app.get('/api/heroes', async (req, res, next) => {
   }
 });
 
-// // Database initialization
-// const init = async () => {
-//   console.log('connecting to database');
-//   await client.connect();
-//   let seed = true;
-//   if (seed) {
-//     console.log('seeding')
-//     await seed();
-//   }
+app.use('/', router);
 
-//   const port = process.env.PORT || 3000;
-//   app.listen(port, () => console.log(`listening on port ${port}`));
-// };
 
 const seed = async () => {
       await createTables();
@@ -242,9 +229,9 @@ const seed = async () => {
   
     
     await insertInitialHeroes();
-    console.log('data seeded');
-  } 
-// Database initialization
+  console.log('data seeded');
+} 
+
 const init = async () => {
   console.log('connecting to database');
   await client.connect();
@@ -257,6 +244,7 @@ const init = async () => {
   const port = process.env.PORT || 3000;
   app.listen(port, () => console.log(`listening on port ${port}`));
 };
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err);
