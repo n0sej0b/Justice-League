@@ -1,39 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { fetchUsers } from "../API/Index";
+import { useAuth } from './AuthContext';
 import './Navbar.css';
 
 const Navbar = () => {
-  const [token, setToken] = useState(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
-  const [error, setError] = useState(null);
-  const [user, setUser] = useState(null);
+  const { isLoggedIn, user, login, logout } = useAuth();
+  const navigate = useNavigate();
   const [loginData, setLoginData] = useState({
     email: '',
     password: ''
   });
+  const [error, setError] = useState(null);
   const [showLoginForm, setShowLoginForm] = useState(false);
   const loginFormRef = useRef(null);
-
-  const checkTokenValidity = (storedToken) => {
-    if (storedToken) {
-      setToken(storedToken);
-      setIsLoggedIn(true);
-    }
-  };
- 
-  function Navigation({ currentUser }) {
-    return (
-      <nav>
-        {/* Other navigation items */}
-        {currentUser && (
-          <Link to={`/profile/${currentUser.id}`}>My Profile</Link>
-        )}
-      </nav>
-    );
-  }
-  
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -48,7 +29,10 @@ const Navbar = () => {
     };
   }, []);
 
-  const toggleMenu = () => setIsOpen(!isOpen);
+  const toggleMenu = () => {
+    setIsOpen(prevState => !prevState);
+  };
+  
   const toggleLoginForm = () => setShowLoginForm(!showLoginForm);
 
   const handleInputChange = (e) => {
@@ -61,82 +45,46 @@ const Navbar = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    
+    setError(null);
+
     try {
-      console.log('Sending login data:', loginData);
-  
       const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          email: loginData.email,
-          password: loginData.password
-        })
+        body: JSON.stringify(loginData),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Login failed');
+      }
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      // Handle successful login
       if (data.token) {
-        // Store the token
-        localStorage.setItem('token', data.token);
-        // Store user data if needed
-        localStorage.setItem('user', JSON.stringify(data.user));
-        
-        // Update your app state
-        setIsLoggedIn(true);
-        setUser(data.user);
+        login(data.user, data.token); // Use the login function from context
         setShowLoginForm(false);
-        setError(null);
+        setLoginData({ email: '', password: '' });
       }
-
     } catch (error) {
-      console.error('Login error:', error);
-      setError(error.message || 'Login failed');
-      setIsLoggedIn(false);
+      console.error('Login failed:', error);
+      setError(error.message || 'Login failed. Please try again.');
     }
-};
+  };
 
-  
-      
-  
-  
-  
-  
-  
-  
-  useEffect(() => {
-    const getUsers = async () => {
-      try {
-          const users = await fetchUsers();
-          
-          setUser(users);
-      } catch (error) {
-          console.error('Error in getUsers:', error);
-         
-          setUser([]);
-          
-      }
-  };
-  
-  
-    getUsers();
-  }, []);
-  
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    setToken(null);
-    setIsLoggedIn(false);
-    setUser(null);
-    setLoginData({ email: '', password: '' });
+    logout(); // Use the logout function from context
+    navigate('/');
   };
-  
+
+  const handleProfileClick = () => {
+    if (user && user.id) {
+      navigate(`/profile/${user.id}`);
+      setIsOpen(false); // Close mobile menu after navigation
+    }
+  };
 
   return (
     <nav className="navbar">
@@ -159,30 +107,34 @@ const Navbar = () => {
           onClick={toggleMenu}
           aria-label="Toggle navigation"
         >
-          <span className="hamburger"></span>
         </button>
       </div>
 
       <ul className={`navbar-menu ${isOpen ? 'active' : ''}`}>
-      <li className="navbar-item">
-      {isLoggedIn ? (
-    <Link to={`/profile/${user?.id}`} className="navbar-link">Profile</Link>
-  ) : (
-    <div className="login-prompt-container">
-      <div 
-        className="navbar-link" 
-        onClick={() => setShowLoginForm(true)}
-      >
-        Profile
-      </div>
-      {!isLoggedIn && (
-        <div className="login-required-message">
-          Please log in to view your profile
-        </div>
-      )}
-    </div>
-  )}
-</li>
+        <li className="navbar-item">
+          {isLoggedIn && user?.id ? (
+            <button 
+              className="navbar-link"
+              onClick={handleProfileClick}
+            >
+              Profile
+            </button>
+          ) : (
+            <div className="login-prompt-container">
+              <div 
+                className="navbar-link" 
+                onClick={() => setShowLoginForm(true)}
+              >
+                Profile
+              </div>
+              {!isLoggedIn && (
+                <div className="login-required-message">
+                  Please log in to view your profile
+                </div>
+              )}
+            </div>
+          )}
+        </li>
         <li className="navbar-item">
           <Link to="/heroes" className="navbar-link">Heroes</Link>
         </li>
@@ -197,12 +149,10 @@ const Navbar = () => {
         </li>
         <li className="navbar-item login-section">
           {isLoggedIn ? (
-            <button 
-              onClick={handleLogout} 
-              className="login-button"
-            >
-              Logout
-            </button>
+            <>
+              <span>Welcome, {user?.username}</span>
+              <button onClick={handleLogout}>Logout</button>
+            </>
           ) : (
             <div className="login-container" ref={loginFormRef}>
               <button 
@@ -213,28 +163,27 @@ const Navbar = () => {
               </button>
               {showLoginForm && (
                 <form className="login-form" onSubmit={handleLogin}>
-                <input
-                  type="email"
-                  name="email"
-                  value={loginData.email}
-                  onChange={handleInputChange}
-                  placeholder="Email"
-                  required
-                />
-                <input
-                  type="password"
-                  name="password"
-                  value={loginData.password}
-                  onChange={handleInputChange}
-                  placeholder="Password"
-                  required
-                />
-                <button type="submit" className="login-submit">
-                  Submit
-                </button>
-                {error && <div className="error-message">{error}</div>}
-              </form>
-              
+                  <input
+                    type="email"
+                    name="email"
+                    value={loginData.email}
+                    onChange={handleInputChange}
+                    placeholder="Email"
+                    required
+                  />
+                  <input
+                    type="password"
+                    name="password"
+                    value={loginData.password}
+                    onChange={handleInputChange}
+                    placeholder="Password"
+                    required
+                  />
+                  <button type="submit" className="login-submit">
+                    Submit
+                  </button>
+                  {error && <div className="error-message">{error}</div>}
+                </form>
               )}
             </div>
           )}

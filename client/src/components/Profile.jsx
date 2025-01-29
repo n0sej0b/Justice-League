@@ -3,11 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getUserProfile } from '../API/Index';
 
-const Profile = () => {
+const Profile = (user) => {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { userId } = useParams();
+  const { id } = useParams();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -19,12 +19,12 @@ const Profile = () => {
               // If no userId is provided, try to get the current user's profile
               const currentUser = JSON.parse(localStorage.getItem('user'));
               
-              if (!userId && !currentUser) {
+              if (!id && !currentUser) {
                   navigate('/login');
                   return;
               }
 
-              const profileId = userId || currentUser.id;
+              const profileId = id || currentUser.id;
               console.log('Fetching profile for user:', profileId);
               
               const userData = await getUserProfile(profileId);
@@ -44,7 +44,7 @@ const Profile = () => {
       };
 
       fetchProfileData();
-  }, [userId, navigate]);
+  }, [id, navigate]);
 
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error loading profile: {error}</div>;

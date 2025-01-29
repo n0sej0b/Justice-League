@@ -1,4 +1,4 @@
-const { client, createTables, createUser, fetchUsers, fetchUserById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
+const { client, createTables, createUser, fetchUsers, fetchUserById, fetchHeroById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
 
 const express = require('express');
 const app = express(); 
@@ -40,26 +40,25 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Review routes
-app.post('/api/reviews', authenticateToken, async (req, res) => {
+app.post('/reviews', async (req, res) => {
   try {
-    const { heroId, rating, reviewText } = req.body;
-    const userId = req.user.userId;
+    const { heroId, userId, rating, reviewText } = req.body;
 
-    if (!heroId || !rating || !reviewText) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!heroId || !userId || !rating || !reviewText) {
+      return res.status(400).json({ message: 'Missing required fields' });
     }
 
-    const review = await createReview({
+    const newReview = await createReview({
       heroId,
       userId,
       rating,
       reviewText
     });
 
-    res.status(201).json(review);
+    res.status(201).json(newReview);
   } catch (error) {
     console.error('Error creating review:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -79,17 +78,38 @@ router.get('/api/users/:userId', async (req, res) => {
   }
 });
 
-app.get('/api/heroes/:heroId/reviews', async (req, res) => {
+app.get('/heroes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const hero = await fetchHeroById(id);
+    
+    if (!hero) {
+      return res.status(404).json({ message: 'Hero not found' });
+    }
+    
+    res.json(hero);
+  } catch (error) {
+    console.error('Error fetching hero:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.get('/heroes/:heroId/reviews', async (req, res) => {
   try {
     const { heroId } = req.params;
     const limit = parseInt(req.query.limit) || 10;
     const offset = parseInt(req.query.offset) || 0;
 
-    const reviews = await getHeroReviews(heroId, limit, offset);
-    res.json(reviews);
+    const reviewData = await getHeroReviews(heroId, limit, offset);
+    
+    if (!reviewData) {
+      return res.status(404).json({ message: 'No reviews found' });
+    }
+
+    res.json(reviewData);
   } catch (error) {
     console.error('Error fetching reviews:', error);
-    res.status(500).json({ error: error.message });
+    res.status(500).json({ message: error.message });
   }
 });
 
@@ -194,14 +214,17 @@ app.post('/api/auth', async (req, res, next) => {
   }
 });
 
-app.get('/api/heroes', async (req, res, next) => {
+app.get('/heroes', async (req, res) => {
   try {
     const heroes = await fetchHeroes();
-    res.send(heroes);
-  } catch (ex) {
-    next(ex);
+    res.json(heroes);
+  } catch (error) {
+    console.error('Error fetching heroes:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+
 
 app.use('/', router);
 

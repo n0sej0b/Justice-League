@@ -425,6 +425,16 @@ const fetchUserById = async (userId) => {
   }
 };
 
+const fetchHeroById = async (id) => {
+  try {
+    const { rows } = await client.query('SELECT * FROM heroes WHERE id = $1', [id]);
+    return rows[0];
+  } catch (error) {
+    console.error('Error in fetchHeroById:', error);
+    throw error;
+  }
+};
+
 const fetchHeroes = async () => {
   const client = await connect();
   try {
@@ -454,6 +464,7 @@ module.exports = {
   createUser,
   authenticateUser,
   fetchUsers,
+  fetchHeroById,
   insertInitialHeroes,
   fetchHeroes,
   createReview,

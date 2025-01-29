@@ -1,11 +1,24 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import './Requests.css';
 import { getHeroes } from "../API/Index";
 
+const API_URL = 'http://localhost:3000';
 
 const Request = () => {
   const [heroes, setHeroes] = useState([]);
   const [error, setError] = useState(null);
+  const [selectedHeroData, setSelectedHeroData] = useState(null); // Changed name to be more clear
+
+  const [requestData, setRequestData] = useState({
+    title: '',
+    description: '',
+    location: '',
+    urgency: 'normal',
+    contactInfo: '',
+    selectedHero: ''
+  });
 
   useEffect(() => {
     const fetchHeroes = async () => {
@@ -22,17 +35,6 @@ const Request = () => {
     fetchHeroes();
   }, []);
 
-
-
-  const [requestData, setRequestData] = useState({
-    title: '',
-    description: '',
-    location: '',
-    urgency: 'normal',
-    contactInfo: '',
-    selectedHero: ''
-  });
-
   const handleChange = (e) => {
     const { name, value } = e.target;
     setRequestData(prevState => ({
@@ -41,11 +43,18 @@ const Request = () => {
     }));
   };
 
-  const handleHeroSelect = (heroName) => {
+  const handleHeroSelect = (hero) => {
+    console.log('Selected hero:', hero);
+    setSelectedHeroData(hero); // Store the entire hero object
     setRequestData(prevState => ({
       ...prevState,
-      selectedHero: heroName
+      selectedHero: hero.name
     }));
+  };
+
+  const getImageUrl = (imagePath) => {
+    if (!imagePath) return '/fallback-hero.png';
+    return `${API_URL}/${imagePath}`;
   };
 
   const handleSubmit = (e) => {
@@ -60,6 +69,7 @@ const Request = () => {
       contactInfo: '',
       selectedHero: ''
     });
+    setSelectedHeroData(null);
   };
 
   return (
@@ -73,14 +83,15 @@ const Request = () => {
             <div 
               key={hero.id} 
               className="hero-card"
-              onClick={() => handleHeroSelect(hero.name)}
+              onClick={() => handleHeroSelect(hero)}
             >
               <img 
-                src={`http://localhost:3000${hero.image}`} 
+                src={getImageUrl(hero.image)}
                 alt={hero.name}
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = '/fallback-hero.png';
+                  console.log('Grid image failed to load:', hero.image);
                 }}
               />
               <h3>{hero.name}</h3>
@@ -91,21 +102,29 @@ const Request = () => {
         // Request Form
         <div className="request-form-section">
           <div className="selected-hero-banner">
-            <img 
-              src={`http://localhost:3000${heroes.find(h => h.name === requestData.selectedHero)?.image}`}
-              alt={requestData.selectedHero}
-              onError={(e) => {
-                e.target.onerror = null;
-                e.target.src = '/fallback-hero.png';
-              }}
-            />
-            <h2>Request Form for {requestData.selectedHero}</h2>
-            <button 
-              className="change-hero-btn"
-              onClick={() => setRequestData(prev => ({ ...prev, selectedHero: '' }))}
-            >
-              Change Hero
-            </button>
+            {selectedHeroData && (
+              <>
+                <img 
+                  src={getImageUrl(selectedHeroData.image)}
+                  alt={selectedHeroData.name}
+                  onError={(e) => {
+                    e.target.onerror = null;
+                    e.target.src = '/fallback-hero.png';
+                    console.log('Banner image failed to load:', selectedHeroData.image);
+                  }}
+                />
+                <h2>Request Form for {selectedHeroData.name}</h2>
+                <button 
+                  className="change-hero-btn"
+                  onClick={() => {
+                    setRequestData(prev => ({ ...prev, selectedHero: '' }));
+                    setSelectedHeroData(null);
+                  }}
+                >
+                  Change Hero
+                </button>
+              </>
+            )}
           </div>
   
           <form onSubmit={handleSubmit} className="request-form">
@@ -180,8 +199,6 @@ const Request = () => {
       )}
     </div>
   );
-  
-  
 };
 
 export default Request;

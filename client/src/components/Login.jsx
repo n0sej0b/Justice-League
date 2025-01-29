@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthContext';
 import './Login.css';
 
 const Login = () => {
@@ -9,6 +10,7 @@ const Login = () => {
   });
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { setIsLoggedIn, setUser } = useAuth();
 
 
   const handleChange = (e) => {
@@ -19,24 +21,42 @@ const Login = () => {
     }));
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-
-    try {
-      const response = await login(formData.username, formData.password);
-      console.log('Login response:', response); // Debug log
-      
-      if (response.user && response.user.id) {
-        // Navigate to profile with the correct user ID
-        navigate(`/profile/${response.user.id}`);
-      } else {
-        throw new Error('User ID not found in response');
-      }
-    } catch (err) {
-      setError(err.message || 'Login failed');
+  // In your login handler
+const handleLogin = async (credentials) => {
+  try {
+    const response = await login(credentials);
+    if (response.token) {
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+      setIsLoggedIn(true);
+      setUser(response.user);
     }
-  };
+  } catch (error) {
+    console.error('Login failed:', error);
+  }
+};
+
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+
+  try {
+    const response = await login(formData.username, formData.password);
+    
+    if (response.user && response.token) {
+      localStorage.setItem('token', response.token);
+      localStorage.setItem('user', JSON.stringify(response.user));
+      setIsLoggedIn(true);
+      setUser(response.user);
+      navigate(`/profile/${response.user.id}`);
+    } else {
+      throw new Error('Invalid login response');
+    }
+  } catch (err) {
+    setError(err.message || 'Login failed');
+  }
+};
 
   return (
     <div className="login-container">
