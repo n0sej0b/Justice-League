@@ -8,10 +8,11 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
+  background-color: #222222; /* Light background for container */
 }
 
 .heroes-container h1 {
-  color: #2c3e50;
+  color: #2c3e50; /* Dark blue-gray for main heading */
   font-size: 3rem;
   font-weight: 800;
   margin-bottom: 3rem;
@@ -27,13 +28,13 @@
   gap: 2.5rem;
   padding: 1rem;
   width: 100%;
-  place-items: center; /* Centers items both horizontally and vertically */
+  place-items: center;
 }
 
 .hero-card {
   width: 100%;
   max-width: 350px;
-  background: white;
+  background: #ffffff;
   border-radius: 20px;
   box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -49,24 +50,26 @@
   object-fit: cover;
 }
 
-/* Center content in reviews section */
+/* Reviews section with better contrast */
 .reviews-section {
   padding: 1.5rem;
   background: #f8f9fa;
   width: 100%;
   text-align: center;
+  color: #2c3e50; /* Dark text for readability */
 }
 
 .review-item {
-  background: white;
+  background: #ffffff;
   padding: 1.5rem;
   margin: 1rem auto;
   border-radius: 12px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
   max-width: 90%;
+  color: #2c3e50; /* Dark text for reviews */
 }
 
-/* Center the review modal */
+/* Review modal with better contrast */
 .review-modal {
   position: fixed;
   top: 0;
@@ -83,7 +86,7 @@
 }
 
 .review-form-container {
-  background: white;
+  background: #ffffff;
   border-radius: 20px;
   width: 90%;
   max-width: 800px;
@@ -93,6 +96,7 @@
   grid-template-columns: 1fr 1fr;
   box-shadow: 0 15px 30px rgba(0, 0, 0, 0.3);
   margin: 0 auto;
+  color: #2c3e50; /* Dark text for form content */
 }
 
 .review-form-content {
@@ -108,15 +112,51 @@
   margin: 0 auto;
 }
 
-/* Center star rating */
+.star {
+  color: #FFD700; /* Classic gold color */
+  cursor: pointer;
+  font-size: 24px; /* Adjust size as needed */
+}
+
 .star-rating {
   display: flex;
   justify-content: center;
   gap: 0.5rem;
   margin: 1rem 0;
+  color: #FFD700; /* Makes all stars gold */
 }
 
-/* Center form actions */
+/* For filled stars */
+.star.filled {
+  color: #FFD700; /* Bright gold */
+}
+
+/* For empty stars */
+.star.empty {
+  color: #D3D3D3; /* Light grey for empty stars */
+}
+
+/* For hover effect */
+.star:hover,
+.star:hover ~ .star {
+  color: #ffb909; /* Darker gold for hover state */
+}
+
+/* For average rating stars */
+.average-rating .star {
+  color: #FFD700;
+  font-size: 20px; /* Slightly smaller for average rating display */
+}
+
+/* If you're using Font Awesome or similar icon libraries */
+.fa-star {
+  color: #FFD700;
+}
+
+.fa-star-o {
+  color: #D3D3D3;
+}
+
 .form-actions {
   display: flex;
   justify-content: center;
@@ -124,14 +164,13 @@
   margin-top: 2rem;
 }
 
-/* Center review action buttons */
 .review-action {
   padding: 1.5rem;
   text-align: center;
   width: 100%;
 }
 
-/* Center messages */
+/* Message with better visibility */
 .message {
   position: fixed;
   bottom: 2rem;
@@ -145,6 +184,65 @@
   padding: 1rem 2rem;
   border-radius: 12px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+  background: #ffffff; /* White background */
+  color: #2c3e50; /* Dark text for messages */
+}
+
+/* Hero card heading with contrast */
+.hero-card h3 {
+  width: 100%;
+  text-align: center;
+  padding: 1.5rem;
+  margin: 0;
+  background: linear-gradient(135deg, #3498db, #2980b9);
+  color: #ffffff; /* White text on dark background */
+}
+
+.average-rating {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  color: #2c3e50; /* Dark text for ratings */
+}
+
+.reviews-section h4 {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  color: #2c3e50; /* Dark text for headings */
+}
+
+.form-group {
+  width: 100%;
+  text-align: center;
+}
+
+.form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  color: #2c3e50; /* Dark text for labels */
+}
+
+.form-group textarea {
+  width: 100%;
+  margin: 0 auto;
+}
+
+/* Animation for modal */
+@keyframes modalFade {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.review-modal {
+  animation: modalFade 0.3s ease;
 }
 
 /* Responsive adjustments */
@@ -196,6 +294,7 @@
     width: 100%;
   }
 }
+
 
 /* Additional styling for better centering */
 .hero-card h3 {

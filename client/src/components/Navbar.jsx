@@ -9,7 +9,7 @@ const Navbar = () => {
   const { isLoggedIn, user, login, logout } = useAuth();
   const navigate = useNavigate();
   const [loginData, setLoginData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [error, setError] = useState(null);
@@ -45,32 +45,57 @@ const Navbar = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError(null);
-
+    setError('');
+  
     try {
+      // Validate inputs
+      if (!loginData.username || !loginData.password) {
+        setError('Username and password are required');
+        return;
+      }
+  
+      console.log('Attempting login with:', {
+        username: loginData.username,
+        passwordLength: loginData.password.length
+      });
+  
       const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(loginData),
+        credentials: 'include', // Add this if using cookies
+        body: JSON.stringify({
+          username: loginData.username,
+          password: loginData.password
+        })
       });
-
+  
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.message || 'Login failed');
       }
-
+  
       const data = await response.json();
-
-      if (data.token) {
-        login(data.user, data.token); // Use the login function from context
-        setShowLoginForm(false);
-        setLoginData({ email: '', password: '' });
-      }
-    } catch (error) {
-      console.error('Login failed:', error);
-      setError(error.message || 'Login failed. Please try again.');
+      console.log('Login successful:', { username: data.username });
+  
+      // Store user data and token
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('user', JSON.stringify(data));
+  
+      // Update auth context
+      login(data);
+  
+      // Clear form
+      setLoginData({ username: '', password: '' });
+      setError('');
+  
+      // Close login form if you have this functionality
+      setShowLoginForm(false);
+  
+    } catch (err) {
+      console.error('Login error:', err);
+      setError(err.message || 'Login failed. Please try again.');
     }
   };
 
@@ -163,13 +188,13 @@ const Navbar = () => {
               </button>
               {showLoginForm && (
                 <form className="login-form" onSubmit={handleLogin}>
-                  <input
-                    type="email"
-                    name="email"
-                    value={loginData.email}
-                    onChange={handleInputChange}
-                    placeholder="Email"
-                    required
+                 <input
+    type="text"
+    name="username"
+    value={loginData.username}
+    onChange={handleInputChange}
+    placeholder="Username"
+    required
                   />
                   <input
                     type="password"

@@ -1,4 +1,5 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+import { useAuth } from '../components/AuthContext';
 
 // const API_URL = 'http://localhost:3000';
 
@@ -87,6 +88,45 @@ const getAuthHeader = () => {
       return responseData;
     } catch (error) {
       console.error('Review submission failed:', error);
+      throw error;
+    }
+  };
+  
+  export const login = async (credentials) => {
+    try {
+      console.log('Making login request with:', credentials);
+  
+      const response = await fetch(`${API_URL}/api/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(credentials)
+      });
+  
+      console.log('Login response status:', response.status);
+  
+      if (!response.ok) {
+        let errorMessage;
+        try {
+          const errorData = await response.json();
+          errorMessage = errorData.message;
+        } catch (e) {
+          errorMessage = `HTTP error! status: ${response.status}`;
+        }
+        throw new Error(errorMessage);
+      }
+  
+      const data = await response.json();
+      console.log('Login response data:', data);
+  
+      if (!data || !data.token) {
+        throw new Error('Invalid response from server');
+      }
+  
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
       throw error;
     }
   };
@@ -188,26 +228,69 @@ export const createReview = async (reviewData) => {
   }
 };
 
-export const deleteReview = async (reviewId) => {
+export const deleteReview = async (reviewId, token) => {
   try {
-    const response = await fetch(`${API_URL}/api/reviews/${reviewId}`, {
+    // Validate reviewId
+    if (!reviewId) {
+      console.error('No review ID provided');
+      return;
+    }
+
+    const token = localStorage.getItem('token');
+    if (!token) {
+      console.error('No authentication token found');
+      return;
+    }
+
+    console.log('Attempting to delete review:', reviewId);
+
+    const response = await fetch(`http://localhost:3000/api/reviews/${reviewId}`, {
       method: 'DELETE',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...getAuthHeader()
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
       }
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to delete review: ${response.status}`);
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete review');
     }
-    return true;
+
+    // Handle successful deletion
+    console.log('Review deleted successfully');
+    // Update your UI here (e.g., remove the review from the list)
+    
   } catch (error) {
     console.error('Error deleting review:', error);
+    // Handle error (show error message to user)
+  }
+};
+
+
+
+
+
+export const deleteRequest = async (requestId) => {
+  try {
+    const response = await fetch(`${API_URL}/requests/${requestId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to delete request');
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error deleting request:', error);
     throw error;
   }
 };
+
 
 export const updateReview = async (reviewId, updates) => {
   try {
@@ -235,20 +318,26 @@ export const updateReview = async (reviewId, updates) => {
 
 export const getUserProfile = async (userId) => {
   try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication required');
+    }
+
     const response = await fetch(`${API_URL}/api/users/${userId}`, {
-      method: 'GET',
       headers: {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        ...getAuthHeader()
-      },
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch user profile');
     }
-    return await response.json();
+
+    const data = await response.json();
+    console.log('Fetched profile data:', data); // Debug log
+    return data;
   } catch (error) {
     console.error('Error fetching user profile:', error);
     throw error;

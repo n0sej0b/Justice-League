@@ -25,7 +25,145 @@ const connect = async () => {
   return client;
 };
 
+// In db.js
+const deleteReview = async (reviewId, userId) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
 
+    console.log('Deleting review with ID:', reviewId, 'for user:', userId);
+
+    // First check if the review exists and belongs to the user
+    const checkResult = await client.query(
+      'SELECT id FROM reviews WHERE id = $1 AND user_id = $2',
+      [reviewId, userId]
+    );
+
+    if (checkResult.rows.length === 0) {
+      console.log('Review not found or unauthorized');
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    // Delete the review
+    const deleteResult = await client.query(
+      'DELETE FROM reviews WHERE id = $1 AND user_id = $2 RETURNING id',
+      [reviewId, userId]
+    );
+
+    await client.query('COMMIT');
+    console.log('Review deleted successfully');
+    return deleteResult.rows[0];
+
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error in deleteReview:', error);
+    throw error;
+  } finally {
+    client.release();
+  }
+};
+
+
+// Function to delete a request
+const deleteRequest = async (requestId, userId) => {
+  const client = await connect();
+  try {
+    await client.query('BEGIN');
+
+    // First verify the request exists and belongs to the user
+    const requestCheck = await client.query(`
+      SELECT id, user_id 
+      FROM requests 
+      WHERE id = $1
+    `, [requestId]);
+
+    if (requestCheck.rows.length === 0) {
+      throw new Error('Request not found');
+    }
+
+    if (requestCheck.rows[0].user_id !== userId) {
+      throw new Error('Unauthorized to delete this request');
+    }
+
+    // Delete any associated reviews or responses first
+    await client.query(`
+      DELETE FROM request_responses 
+      WHERE request_id = $1
+    `, [requestId]);
+
+    // Delete the request
+    const result = await client.query(`
+      DELETE FROM requests 
+      WHERE id = $1 AND user_id = $2
+      RETURNING id
+    `, [requestId, userId]);
+
+    await client.query('COMMIT');
+
+    if (result.rows.length === 0) {
+      throw new Error('Failed to delete request');
+    }
+
+    return { success: true, message: 'Request deleted successfully' };
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error in deleteRequest:', error);
+    throw error;
+  }
+};
+
+const createRequestsTable = async () => {
+  const client = await connect();
+  try {
+    await client.query('BEGIN');
+
+    // Create requests table
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS requests (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        location VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'pending',
+        urgency VARCHAR(50) DEFAULT 'normal',
+        contact_info TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create request_responses table for tracking responses to requests
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS request_responses (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        request_id UUID REFERENCES requests(id) ON DELETE CASCADE,
+        hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
+        response_text TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Add indexes for better query performance
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_requests_user_id ON requests(user_id);
+      CREATE INDEX IF NOT EXISTS idx_requests_hero_id ON requests(hero_id);
+      CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+      CREATE INDEX IF NOT EXISTS idx_request_responses_request_id ON request_responses(request_id);
+      CREATE INDEX IF NOT EXISTS idx_request_responses_hero_id ON request_responses(hero_id);
+    `);
+
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error creating requests tables:', error);
+    throw error;
+  }
+};
 
 
 
@@ -33,25 +171,36 @@ const createTables = async () => {
   const client = await connect();
   try {
     await client.query('BEGIN');
-    await client.query(`DROP TABLE IF EXISTS users, heroes CASCADE`);
-    await client.query(`CREATE TABLE users(
-      id UUID PRIMARY KEY,
-      username VARCHAR(100) UNIQUE NOT NULL,
-       email VARCHAR(255) UNIQUE NOT NULL,
-      password VARCHAR(100) NOT NULL,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
-    await client.query(`CREATE TABLE heroes(
-      id UUID PRIMARY KEY,
-      name VARCHAR(100) UNIQUE NOT NULL,
-      price DECIMAL(10,2) NOT NULL,
-      description TEXT,
-      image VARCHAR(255),
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )`);
 
+    // Drop existing tables with CASCADE to handle dependencies
+    await client.query(`DROP TABLE IF EXISTS users, heroes, reviews, requests, request_responses CASCADE`);
+
+    // Create users table
     await client.query(`
-      CREATE TABLE IF NOT EXISTS reviews (
+      CREATE TABLE users(
+        id UUID PRIMARY KEY,
+        username VARCHAR(100) UNIQUE NOT NULL,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(100) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create heroes table
+    await client.query(`
+      CREATE TABLE heroes(
+        id UUID PRIMARY KEY,
+        name VARCHAR(100) UNIQUE NOT NULL,
+        price DECIMAL(10,2) NOT NULL,
+        description TEXT,
+        image VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create reviews table
+    await client.query(`
+      CREATE TABLE reviews (
         id UUID PRIMARY KEY,
         hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
@@ -62,29 +211,58 @@ const createTables = async () => {
       )
     `);
 
-    
+    // Create requests table
+    await client.query(`
+      CREATE TABLE requests (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+        hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
+        title VARCHAR(255) NOT NULL,
+        description TEXT,
+        location VARCHAR(255),
+        status VARCHAR(50) DEFAULT 'pending',
+        urgency VARCHAR(50) DEFAULT 'normal',
+        contact_info TEXT,
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create request_responses table
+    await client.query(`
+      CREATE TABLE request_responses (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        request_id UUID REFERENCES requests(id) ON DELETE CASCADE,
+        hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
+        response_text TEXT,
+        status VARCHAR(50) DEFAULT 'pending',
+        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create indexes for better query performance
     await client.query(`
       CREATE INDEX IF NOT EXISTS users_username_idx ON users(username);
       CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
       CREATE INDEX IF NOT EXISTS heroes_name_idx ON heroes(name);
-    `);
-    
-    await client.query(`
       CREATE INDEX IF NOT EXISTS reviews_hero_id_idx ON reviews(hero_id);
       CREATE INDEX IF NOT EXISTS reviews_user_id_idx ON reviews(user_id);
       CREATE INDEX IF NOT EXISTS reviews_rating_idx ON reviews(rating);
+      CREATE INDEX IF NOT EXISTS idx_requests_user_id ON requests(user_id);
+      CREATE INDEX IF NOT EXISTS idx_requests_hero_id ON requests(hero_id);
+      CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
+      CREATE INDEX IF NOT EXISTS idx_request_responses_request_id ON request_responses(request_id);
+      CREATE INDEX IF NOT EXISTS idx_request_responses_hero_id ON request_responses(hero_id);
     `);
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS users_username_idx ON users(username);
-      CREATE INDEX IF NOT EXISTS users_email_idx ON users(email);
-      CREATE INDEX IF NOT EXISTS heroes_name_idx ON heroes(name);
-    `);
-    
+
     await client.query('COMMIT');
+    console.log('All tables created successfully');
   } catch (error) {
     await client.query('ROLLBACK');
+    console.error('Error creating tables:', error);
     throw error;
-  } 
+  }
 };
 
 const createReview = async ({ heroId, userId, rating, reviewText }) => {
@@ -233,26 +411,6 @@ const getHeroReviews = async (heroId, limit = 10, offset = 0) => {
 };
 
 
-// Function to delete a review
-const deleteReview = async (reviewId, userId) => {
-  const client = await connect();
-  try {
-    const result = await client.query(`
-      DELETE FROM reviews 
-      WHERE id = $1 AND user_id = $2
-      RETURNING id
-    `, [reviewId, userId]);
-
-    if (result.rows.length === 0) {
-      throw new Error('Review not found or unauthorized');
-    }
-
-    return { success: true };
-  } catch (error) {
-    throw new Error(`Error deleting review: ${error.message}`);
-  }
-};
-
 
 
 
@@ -261,46 +419,56 @@ const createUser = async ({ username, email, password }) => {
   if (!username || !email || !password) {
     throw new Error('Username, email, and password are required');
   }
+
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     throw new Error('Invalid email format');
-  }  if (username.length < 3) {
+  }
+
+  if (username.length < 3) {
     throw new Error('Username must be at least 3 characters long');
-  }  if (password.length < 8) {
+  }
+
+  if (password.length < 8) {
     throw new Error('Password must be at least 8 characters long');
   }
 
-  const createUserStatement = {
-    name: 'create-user',
-    text: `INSERT INTO users(id, username, email, password) 
-           VALUES($1, $2, $3, $4) 
-           RETURNING id, username, email`
-  };
-
   const client = await connect();
   try {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const values = [
-      uuid.v4(), 
-      username.toLowerCase(), 
-      email.toLowerCase(), 
-      hashedPassword
-    ];
-    
-    const response = await client.query(createUserStatement, values);
-    return response.rows[0];
-  } catch (error) {
-    if (error.code === '23505') {
-      if (error.detail.includes('email')) {
-        throw new Error('Email already registered');
-      }
-      if (error.detail.includes('username')) {
+    await client.query('BEGIN');
+
+    // Check if username or email already exists
+    const existingUser = await client.query(
+      'SELECT username, email FROM users WHERE username = $1 OR email = $2',
+      [username.toLowerCase(), email.toLowerCase()]
+    );
+
+    if (existingUser.rows.length > 0) {
+      if (existingUser.rows[0].username === username.toLowerCase()) {
         throw new Error('Username already exists');
       }
+      if (existingUser.rows[0].email === email.toLowerCase()) {
+        throw new Error('Email already registered');
+      }
     }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const userId = uuid.v4();
+
+    const result = await client.query(
+      `INSERT INTO users(id, username, email, password) 
+       VALUES($1, $2, $3, $4) 
+       RETURNING id, username, email`,
+      [userId, username.toLowerCase(), email.toLowerCase(), hashedPassword]
+    );
+
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (error) {
+    await client.query('ROLLBACK');
     throw error;
-  }
-};
+  } 
+}
 
 // Function to insert initial heroes
 const insertInitialHeroes = async () => {
@@ -339,42 +507,51 @@ const insertInitialHeroes = async () => {
   }
 };
 
-// Function to authenticate user
-const authenticateUser = async ({ email, password }) => {
-  const client = await connect();  // Make sure we have a database connection
+
+// In db.js
+const authenticateUser = async ({ username, password }) => {
   try {
-    console.log('Attempting to authenticate:', email); // Debug log
+    console.log('Authenticating user:', username);
 
-    // Query to find user by email
     const result = await client.query(
-      'SELECT * FROM users WHERE email = $1',
-      [email.toLowerCase()]
+      'SELECT * FROM users WHERE username = $1',
+      [username.toLowerCase()]
     );
-
-    console.log('Query result:', result.rows.length); // Debug log
 
     if (result.rows.length === 0) {
       throw new Error('User not found');
     }
 
     const user = result.rows[0];
-
-    // Compare passwords
     const isValidPassword = await bcrypt.compare(password, user.password);
-    
+
     if (!isValidPassword) {
       throw new Error('Invalid password');
     }
 
-    // Remove password from user object before returning
+    // Generate token
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.username,
+        email: user.email 
+      },
+      process.env.JWT_SECRET || 'secrettoken',
+      { expiresIn: '24h' }
+    );
+
+    // Remove password from response
     const { password: _, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+    return { ...userWithoutPassword, token };
 
   } catch (error) {
-    console.error('Database authentication error:', error);
+    console.error('Authentication error:', error);
     throw error;
   }
 };
+
+
+
 
 
 const fetchUsers = async () => {
@@ -401,10 +578,12 @@ const fetchUserById = async (userId) => {
           json_build_object(
             'id', reviews.id,
             'rating', reviews.rating,
-            'reviewText', reviews.review_text,
-            'createdAt', reviews.created_at
+            'review_text', reviews.review_text,
+            'created_at', reviews.created_at,
+            'hero_id', reviews.hero_id,
+            'user_id', reviews.user_id
           )
-        ) as "Reviews"
+        ) FILTER (WHERE reviews.id IS NOT NULL) as "Reviews"
       FROM users
       LEFT JOIN reviews ON users.id = reviews.user_id
       WHERE users.id = $1
@@ -414,7 +593,7 @@ const fetchUserById = async (userId) => {
     if (!user) return null;
     
     // If no reviews, set Reviews to empty array instead of null
-    if (user.Reviews[0] === null) {
+    if (!user.Reviews) {
       user.Reviews = [];
     }
     
@@ -469,5 +648,6 @@ module.exports = {
   fetchHeroes,
   createReview,
   getHeroReviews,
-  deleteReview
+  deleteReview,
+  deleteRequest
 };

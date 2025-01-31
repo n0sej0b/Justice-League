@@ -27,16 +27,16 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ error: 'Authentication required' });
+    return res.status(401).json({ message: 'Authentication token required' });
   }
 
-  jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid or expired token' });
-    }
+  try {
+    const user = jwt.verify(token, process.env.JWT_SECRET || 'secrettoken');
     req.user = user;
     next();
-  });
+  } catch (error) {
+    return res.status(403).json({ message: 'Invalid or expired token' });
+  }
 };
 
 // Review routes
@@ -115,20 +115,76 @@ app.get('/heroes/:heroId/reviews', async (req, res) => {
 
 app.delete('/api/reviews/:reviewId', authenticateToken, async (req, res) => {
   try {
-    const { reviewId } = req.params;
-    const userId = req.user.userId;
+    const reviewId = req.params.id;
+    const userId = req.user.id; // From authenticateToken middleware
 
-    await deleteReview(reviewId, userId);
+    console.log('Attempting to delete review:', { reviewId, userId });
+
+    if (checkReview.rows.length === 0) {
+      return res.status(404).json({ message: 'Review not found' });
+    }
+
+    if (checkReview.rows[0].user_id !== userId) {
+      return res.status(403).json({ message: 'Not authorized to delete this review' });
+    }
+
+    // Delete the review
+    await pool.query(
+      'DELETE FROM reviews WHERE id = $1 AND user_id = $2',
+      [reviewId, userId]
+    );
+
     res.json({ message: 'Review deleted successfully' });
   } catch (error) {
-    console.error('Error deleting review:', error);
-    if (error.message.includes('not found or unauthorized')) {
-      res.status(404).json({ error: error.message });
-    } else {
-      res.status(500).json({ error: error.message });
-    }
+    console.error('Server error deleting review:', error);
+    res.status(500).json({ message: 'Server error while deleting review' });
   }
 });
+
+app.delete('/api/requests/:id', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user.id; // From your auth middleware
+
+    const result = await deleteRequest(id, userId);
+    res.json(result);
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    res.status(500).json({ 
+      error: error.message || 'Failed to delete request' 
+    });
+  }
+});
+
+
+
+// In index.js
+app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
+  try {
+    const reviewId = req.params.id;
+    const userId = req.user.id;
+
+    console.log('Attempting to delete review:', { reviewId, userId });
+
+    // Validate reviewId
+    if (!reviewId) {
+      return res.status(400).json({ message: 'Review ID is required' });
+    }
+
+    const result = await deleteReview(reviewId, userId);
+    
+    if (result) {
+      res.json({ message: 'Review deleted successfully' });
+    } else {
+      res.status(404).json({ message: 'Review not found or unauthorized' });
+    }
+  } catch (error) {
+    console.error('Server error deleting review:', error);
+    res.status(500).json({ message: 'Server error while deleting review' });
+  }
+});
+
+
 
 router.get('/api/users', async (req, res) => {
   try {
@@ -140,51 +196,53 @@ router.get('/api/users', async (req, res) => {
   }
 });
 
+
+// In your server's index.js or auth routes file
 app.post('/api/login', async (req, res) => {
   try {
-    const { email, password } = req.body;
-    
-    if (!email || !password) {
+    // Log the incoming request
+    console.log('Login request received:', {
+      body: req.body,
+      headers: req.headers['content-type']
+    });
+
+    const { username, password } = req.body;
+
+    // Validate request body
+    if (!username || !password) {
+      console.log('Missing credentials:', { username: !!username, password: !!password });
       return res.status(400).json({ 
-        error: 'Email and password are required' 
+        message: 'Username and password are required'
       });
     }
 
-    const user = await authenticateUser({ email, password });
+    // Attempt authentication
+    const user = await authenticateUser({ username, password });
 
-    if (!user) {
-      return res.status(401).json({ 
-        error: 'Invalid credentials' 
-      });
-    }
+    // Log successful authentication
+    console.log('User authenticated successfully:', { username: user.username });
 
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email 
-      },
-      process.env.JWT_SECRET || 'your-secret-key',
-      { expiresIn: '1h' }
-    );
-
-    res.status(200).json({
-      success: true,
-      token,
-      user: {
-        id: user.id,
-        email: user.email,
-        username: user.username
-      }
+    // Send response
+    res.json({
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      token: user.token
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ 
-      error: 'Authentication failed',
-      details: error.message || 'An internal server error occurred'
-    });
+    
+    if (error.message === 'User not found' || error.message === 'Invalid password') {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    
+    res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+
+
 
 app.post('/api/users', async (req, res) => {
   try {
@@ -270,8 +328,8 @@ const init = async () => {
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error(err);
-  res.status(500).json({ error: 'Internal server error' });
+  console.error(err.stack);
+  res.status(500).json({ message: 'Something went wrong!' });
 });
 
 // Initialize the application

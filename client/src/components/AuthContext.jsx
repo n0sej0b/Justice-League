@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
 
 const AuthContext = createContext(null);
 
@@ -6,43 +6,68 @@ export const AuthProvider = ({ children }) => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [user, setUser] = useState(null);
 
-  // Check for existing auth state when the app loads
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    const savedUser = localStorage.getItem('user');
-    
-    if (token && savedUser) {
+  const login = (userData) => {
+    // Make sure userData includes the token
+    if (userData && userData.token) {
+      localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('token', userData.token); // Store token separately as well
+      setUser(userData);
       setIsLoggedIn(true);
-      setUser(JSON.parse(savedUser));
+    }
+  };
+
+  const logout = useCallback(() => {
+    try {
+      // Clear localStorage
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      
+      // Reset state
+      setUser(null);
+      setIsLoggedIn(false);
+    } catch (error) {
+      console.error('Logout error:', error);
+      throw error;
     }
   }, []);
 
-  const login = (userData, token) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
-    setIsLoggedIn(true);
-    setUser(userData);
-  };
+  useEffect(() => {
+    try {
+      // Check for existing user data on mount
+      const storedUser = localStorage.getItem('user');
+      const token = localStorage.getItem('token');
+      
+      if (storedUser && token) {
+        const userData = JSON.parse(storedUser);
+        setUser(userData);
+        setIsLoggedIn(true);
+      }
+    } catch (error) {
+      console.error('Auth initialization error:', error);
+      logout();
+    }
+  }, [logout]);
 
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    setIsLoggedIn(false);
-    setUser(null);
+  const value = {
+    isLoggedIn,
+    user,
+    login,
+    logout
   };
 
   return (
-    <AuthContext.Provider value={{ 
-      isLoggedIn, 
-      setIsLoggedIn, 
-      user, 
-      setUser,
-      login,
-      logout 
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return context;
+};
+
+export default AuthContext;
