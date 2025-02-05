@@ -9,6 +9,8 @@ const API_URL = 'http://localhost:3000';
 // StarRating Component
 const StarRating = ({ rating, onRatingChange, readOnly = false }) => {
   const [hover, setHover] = useState(0);
+  
+  
 
   return (
     <div className={`star-rating ${readOnly ? 'disabled' : ''}`}>
@@ -62,6 +64,19 @@ const Heroes = () => {
     selectedHero: ''
   });
 
+  const [expandedReviews, setExpandedReviews] = useState({});
+  const [selectedReview, setSelectedReview] = useState(null);
+
+
+  
+  const toggleReview = (heroId, index) => {
+    console.log('Toggling review:', heroId, index);
+    setExpandedReviews(prev => ({
+      ...prev,
+      [`${heroId}-${index}`]: !prev[`${heroId}-${index}`]
+    }));
+  };
+
   const selectedHero = heroes.find(hero => hero.name === reviewData.selectedHero);
 
   // Load heroes and reviews
@@ -70,27 +85,39 @@ const Heroes = () => {
       try {
         const heroesData = await getHeroes();
         setHeroes(heroesData);
-
+  
         const reviewsPromises = heroesData.map(hero => 
           getReviewsByHeroId(hero.id)
-            .then(reviews => ({ heroId: hero.id, reviews }))
+            .then(reviewsData => {
+              console.log(`Reviews for hero ${hero.id}:`, reviewsData); // Debug log
+              return {
+                heroId: hero.id,
+                reviews: Array.isArray(reviewsData.reviews) ? reviewsData.reviews : []
+              };
+            })
         );
-
+  
         const allReviews = await Promise.all(reviewsPromises);
         const reviewsByHero = allReviews.reduce((acc, { heroId, reviews }) => {
           acc[heroId] = reviews;
           return acc;
         }, {});
-
+  
+        console.log('Final reviews state:', reviewsByHero); // Debug log
         setHeroReviews(reviewsByHero);
       } catch (error) {
         console.error('Error loading data:', error);
         setError(error.message);
       }
     };
-
+  
     loadHeroesAndReviews();
   }, []);
+  
+  
+  
+  
+  
 
   const handleHeroSelect = (heroName) => {
     const selectedHero = heroes.find(h => h.name === heroName);
@@ -129,54 +156,121 @@ const Heroes = () => {
   const refreshHeroReviews = async (heroId) => {
     try {
       const reviews = await getReviewsByHeroId(heroId);
+      const reviewsArray = reviews.reviews || Object.values(reviews) || [];
       setHeroReviews(prev => ({
         ...prev,
-        [heroId]: reviews
+        [heroId]: reviewsArray
       }));
     } catch (error) {
       console.error('Error refreshing reviews:', error);
     }
   };
 
+  useEffect(() => {
+    if (selectedReview) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+  
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [selectedReview]);
+  
+  
+  
+  
+
   const calculateAverageRating = (reviews) => {
-    // Check if reviews exists and has the expected structure
-    if (!reviews || !Array.isArray(reviews)) return 'N/A';
-    if (reviews.length === 0) return 'N/A';
+    if (!Array.isArray(reviews) || reviews.length === 0) return 'N/A';
     
-    const sum = reviews.reduce((acc, review) => acc + review.rating, 0);
+    const sum = reviews.reduce((acc, review) => acc + (Number(review.rating) || 0), 0);
     return (sum / reviews.length).toFixed(1);
   };
   
+  
+    return (
+      <div className="heroes-container">
+        <h1>Heroes</h1>
+        
+        <div className="heroes-grid">
+          {heroes.map(hero => (
+            <div key={hero.id} className="hero-card">
+              <img 
+                src={`${API_URL}/${hero.image}`} 
+                alt={hero.name}
+                onError={(e) => {
+                  e.target.onerror = null;
+                  e.target.src = '/default-hero.png'; 
+                }}
+                className="hero-image"
+              />
+              <h3>{hero.name}</h3>
+              <AverageRating rating={calculateAverageRating(heroReviews[hero.id])} />
+  
+              <div className="reviews-section">
+  <h4>Reviews ({Array.isArray(heroReviews[hero.id]) ? heroReviews[hero.id].length : 0})</h4>
+  
+  {Array.isArray(heroReviews[hero.id]) && heroReviews[hero.id].map((review, index) => {
+  if (!review) return null;
+
+  const reviewText = review.review;
+  if (!reviewText) return null;
+
+  const shortReview = reviewText.slice(0, 100);
+  const needsExpansion = reviewText.length > 100;
 
   return (
-    <div className="heroes-container">
-      <h1>Heroes</h1>
-      
-      <div className="heroes-grid">
-        {heroes.map(hero => (
-          <div key={hero.id} className="hero-card">
-            <img 
-  src={`${API_URL}/${hero.image}`} 
-  alt={hero.name}
-  onError={(e) => {
-    e.target.onerror = null;
-    e.target.src = '/default-hero.png'; 
-  }}
-  className="hero-image"
-/>
-            <h3>{hero.name}</h3>
-            <AverageRating rating={calculateAverageRating(heroReviews[hero.id])} />
-            
-            <div className="reviews-section">
-              <h4>Reviews ({heroReviews[hero.id]?.reviews?.length || 0})</h4>
-              {heroReviews[hero.id]?.reviews?.map((review, index) => (
-                <div key={review.id || index} className="review-item">
-                  <StarRating rating={review.rating} readOnly />
-                  <p>{review.review}</p>
-                  <small>{new Date(review.timestamp).toLocaleDateString()}</small>
-                </div>
-              ))}
-            </div>
+    <div 
+      key={review.id || index} 
+      className="review-item"
+      onClick={() => setSelectedReview(review)}
+      style={{ cursor: 'pointer' }}
+    >
+      <StarRating rating={Number(review.rating) || 0} readOnly />
+      <p className="review-text">
+        {needsExpansion ? `${shortReview}...` : reviewText}
+      </p>
+      <small>
+        {review.timestamp ? new Date(review.timestamp).toLocaleDateString() : 'No date'}
+      </small>
+    </div>
+  );
+})}
+
+{/* Review Modal */}
+{selectedReview && (
+  <div className="review-modal-overlay" onClick={() => setSelectedReview(null)}>
+    <div className="review-modal-content" onClick={e => e.stopPropagation()}>
+      <button 
+        className="close-modal-button"
+        onClick={() => setSelectedReview(null)}
+      >
+        ×
+      </button>
+      <div className="modal-review-content">
+        <StarRating rating={Number(selectedReview.rating) || 0} readOnly />
+        <p className="review-text">{selectedReview.review}</p>
+        <small>
+          {selectedReview.timestamp 
+            ? new Date(selectedReview.timestamp).toLocaleDateString() 
+            : 'No date'
+          }
+        </small>
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+</div>
+
+
+
+
+
 
             <div className="review-action">
               {isLoggedIn ? (

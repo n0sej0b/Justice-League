@@ -25,7 +25,6 @@ const connect = async () => {
   return client;
 };
 
-// In db.js
 const deleteReview = async (reviewId, userId) => {
   const client = await pool.connect();
   try {
@@ -61,6 +60,29 @@ const deleteReview = async (reviewId, userId) => {
     throw error;
   } finally {
     client.release();
+  }
+};
+
+const updateReview = async (reviewId, userId, { rating, review_text }) => {
+  try {
+    const result = await client.query(
+      `UPDATE reviews 
+       SET rating = $1, 
+           review_text = $2, 
+           updated_at = CURRENT_TIMESTAMP
+       WHERE id = $3 AND user_id = $4
+       RETURNING id, rating, review_text, user_id, hero_id, created_at, updated_at`,
+      [rating, review_text, reviewId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return null;
+    }
+
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in updateReview:', error);
+    throw error;
   }
 };
 
@@ -638,6 +660,7 @@ process.on('SIGINT', async () => {
 
 module.exports = {
   client,
+  updateReview,
   fetchUserById,
   createTables,
   createUser,

@@ -35,6 +35,7 @@ const getAuthHeader = () => {
       throw error;
     }
   };
+  
 
   export const getReviewsByHeroId = async (heroId) => {
     try {
@@ -51,46 +52,82 @@ const getAuthHeader = () => {
         throw new Error(`Failed to fetch reviews: ${response.statusText}`);
       }
   
-      return await response.json();
+      const data = await response.json();
+      console.log(`Raw reviews data for hero ${heroId}:`, data);
+  
+      // Extract the reviews array from the response
+      const reviews = data.reviews || [];
+      
+      // Log a sample review if available
+      if (reviews.length > 0) {
+        console.log('Sample review before mapping:', reviews[0]);
+      }
+  
+      // Map the reviews to ensure consistent structure
+      const mappedReviews = reviews.map(review => {
+        const mapped = {
+          id: review.id,
+          rating: review.rating,
+          review: review.review_text,
+          timestamp: review.created_at
+        };
+        console.log('Mapped review:', mapped);
+        return mapped;
+      });
+  
+      return mappedReviews;
+  
     } catch (error) {
       console.error('Error fetching reviews:', error);
       throw error;
     }
   };
+  
+  
+  
+  
+  
 
   export const submitHeroReview = async (reviewData) => {
     try {
-      // Match the exact field names expected by the server
       const formattedReview = {
         heroId: reviewData.heroId,
         userId: reviewData.userId,
         rating: parseInt(reviewData.rating),
-        reviewText: reviewData.review  // Changed from 'review' to 'reviewText'
+        reviewText: reviewData.review
       };
   
       console.log('Sending review data:', formattedReview);
   
-      const response = await fetch('http://localhost:3000/reviews', {
+      // Use API_URL instead of hardcoded URL
+      const response = await fetch(`${API_URL}/api/reviews`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Accept': 'application/json',  // Add this to ensure JSON response
+          ...getAuthHeader()  // Use the helper function for authentication
         },
         body: JSON.stringify(formattedReview)
       });
   
-      const responseData = await response.json();
-  
+      // Check if response is ok before trying to parse JSON
       if (!response.ok) {
-        throw new Error(responseData.message || 'Failed to submit review');
+        const errorText = await response.text();
+        console.error('Error response:', errorText);
+        throw new Error(`Failed to submit review: ${response.status}`);
       }
   
+      const responseData = await response.json();
       return responseData;
     } catch (error) {
       console.error('Review submission failed:', error);
       throw error;
     }
   };
+  
+  
+  
+  
   
   export const login = async (credentials) => {
     try {
@@ -138,19 +175,10 @@ const getAuthHeader = () => {
 
   export const getHeroReviews = async (heroId) => {
     try {
-      const response = await fetch(`${API_URL}/heroes/${heroId}/reviews`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          ...getAuthHeader()
-        },
-      });
-  
+      const response = await fetch(`${API_URL}/api/heroes/${heroId}/reviews`);
       if (!response.ok) {
-        throw new Error(`Failed to fetch hero reviews: ${response.statusText}`);
+        throw new Error('Failed to fetch reviews');
       }
-  
       return await response.json();
     } catch (error) {
       console.error('Error fetching hero reviews:', error);
@@ -292,29 +320,44 @@ export const deleteRequest = async (requestId) => {
 };
 
 
-export const updateReview = async (reviewId, updates) => {
+export const updateReview = async (reviewId, updatedData) => {
   try {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      throw new Error('Authentication token not found');
+    }
+
+    // Use API_URL instead of import.meta.env.VITE_API_URL directly
     const response = await fetch(`${API_URL}/api/reviews/${reviewId}`, {
       method: 'PUT',
       headers: {
-        'Accept': 'application/json',
         'Content-Type': 'application/json',
-        ...getAuthHeader()
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
-      body: JSON.stringify(updates)
+      body: JSON.stringify({
+        rating: updatedData.rating,
+        review_text: updatedData.review_text
+      })
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to update review');
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.message || `Failed to update review: ${response.statusText}`);
     }
 
-    return await response.json();
+    const responseData = await response.json();
+    console.log('Review updated successfully:', responseData);
+    return responseData;
   } catch (error) {
-    console.error('Error updating review:', error);
+    console.error('Error in updateReview:', error);
     throw error;
   }
 };
+
+
+
+
 
 export const getUserProfile = async (userId) => {
   try {

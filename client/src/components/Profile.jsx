@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getUserProfile, deleteReview, deleteRequest } from '../API/Index';
+import { getUserProfile, deleteReview, deleteRequest, updateReview } from '../API/Index';
 import { useAuth } from './AuthContext';
 import './Profile.css';
 
@@ -10,6 +10,9 @@ const Profile = () => {
   const [error, setError] = useState(null);
   const [activeTab, setActiveTab] = useState('reviews');
   const [deleteLoading, setDeleteLoading] = useState(false);
+  const [selectedReview, setSelectedReview] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedReview, setEditedReview] = useState(null);
   const { id } = useParams();
   const navigate = useNavigate();
   const { isLoggedIn, user } = useAuth();
@@ -51,6 +54,19 @@ const Profile = () => {
     fetchProfileData();
   }, [id, navigate]);
 
+  useEffect(() => {
+    if (selectedReview) {
+      document.body.classList.add('modal-open');
+    } else {
+      document.body.classList.remove('modal-open');
+    }
+  
+    return () => {
+      document.body.classList.remove('modal-open');
+    };
+  }, [selectedReview]);
+  
+
   const handleDeleteReview = async (reviewId) => {
     try {
       setDeleteLoading(true);
@@ -86,6 +102,42 @@ const Profile = () => {
       setDeleteLoading(false);
     }
   };
+
+  const handleUpdateReview = async (reviewId, updatedData) => {
+    try {
+      console.log('Updating review:', { reviewId, updatedData });
+  
+      const result = await updateReview(reviewId, {
+        rating: updatedData.rating,
+        review_text: updatedData.review_text
+      });
+  
+      console.log('Update successful:', result);
+  
+      // Update local state
+      setProfile(prevProfile => ({
+        ...prevProfile,
+        Reviews: prevProfile.Reviews.map(review =>
+          review.id === reviewId 
+            ? { ...review, ...updatedData }
+            : review
+        )
+      }));
+  
+      // Reset form state
+      setIsEditing(false);
+      setSelectedReview(null);
+      setEditedReview(null);
+  
+    } catch (error) {
+      console.error('Error updating review:', error);
+      setError(error.message || 'Failed to update review');
+    }
+  };
+  
+  
+  
+  
   
 
   const handleDeleteRequest = async (requestId) => {
@@ -152,49 +204,151 @@ const Profile = () => {
       </div>
 
       <div className="tab-content">
-      {activeTab === 'reviews' && (
-  <div className="reviews-section">
-    <h2>Reviews</h2>
-    {profile.Reviews && profile.Reviews.length > 0 ? (
-      <div className="reviews-grid">
-        {profile.Reviews.map(review => {
-          // Debug logs
-          console.log('Review:', review);
-          console.log('Current user:', user);
-          console.log('Is logged in:', isLoggedIn);
-          console.log('User matches review:', user?.id === review.userId);
+        {activeTab === 'reviews' && (
+          <div className="reviews-section">
+            <h2>Reviews</h2>
+            {profile.Reviews && profile.Reviews.length > 0 ? (
+              <div className="reviews-grid">
+                {profile.Reviews.map(review => (
+                  <div 
+                    key={review.id} 
+                    className="review-card"
+                    onClick={() => setSelectedReview(review)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <div className="review-header">
+                      <h3>Hero Review</h3>
+                      {isLoggedIn && user && user.id === review.user_id && (
+                        <button
+                          className="delete-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteReview(review.id);
+                          }}
+                          disabled={deleteLoading}
+                          title="Delete Review"
+                        >
+                          ×
+                        </button>
+                      )}
+                    </div>
+                    <div className="rating">Rating: {review.rating}/5</div>
+                    <p>{review.review_text}</p>
+                    <small>Posted on: {new Date(review.created_at).toLocaleDateString()}</small>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>No reviews yet</p>
+            )}
 
-          return (
-            <div key={review.id} className="review-card">
-              <div className="review-header">
-                <h3>Hero Review</h3>
-                {isLoggedIn && user && user.id === review.user_id && ( // Changed from userId to user_id
-                  <button
-                    className="delete-btn"
-                    onClick={() => handleDeleteReview(review.id)}
-                    disabled={deleteLoading}
-                    title="Delete Review"
+            {selectedReview && (
+              <div className="review-modal-overlay" onClick={() => {
+                setSelectedReview(null);
+                setIsEditing(false);
+                setEditedReview(null);
+              }}>
+                <div className="review-modal-content" onClick={e => e.stopPropagation()}>
+                  <button 
+                    className="close-modal-button"
+                    onClick={() => {
+                      setSelectedReview(null);
+                      setIsEditing(false);
+                      setEditedReview(null);
+                    }}
                   >
                     ×
                   </button>
-                )}
-              </div>
-              <div className="rating">Rating: {review.rating}/5</div>
-              <p>{review.review_text}</p>
-              <small>Posted on: {new Date(review.created_at).toLocaleDateString()}</small>
-            </div>
-          );
-        })}
-      </div>
-    ) : (
-      <p>No reviews yet</p>
-    )}
-  </div>
-)}
+                  <div className="modal-review-content">
+                    {!isEditing ? (
+                      <>
+                        <div className="modal-header">
+                          <div>
+                            <h3>Hero Review</h3>
+                            <div className="rating">Rating: {selectedReview.rating}/5</div>
+                          </div>
+                          {isLoggedIn && user && user.id === selectedReview.user_id && (
+                            <button 
+                            className="edit-button"
+                            onClick={() => {
+                              setIsEditing(true);
+                              setEditedReview({
+                                rating: selectedReview.rating,
+                                review_text: selectedReview.review_text
+                              });
+                            }}
+                          >
+                            Edit Review
+                          </button>
+                          
+                          )}
+                        </div>
+                        <p className="review-text">{selectedReview.review_text}</p>
+                        <small>
+                          Posted on: {new Date(selectedReview.created_at).toLocaleDateString()}
+                        </small>
+                      </>
+                    ) : (
+                      <form 
+  className="edit-review-form"
+  onSubmit={(e) => {
+    e.preventDefault();
+    handleUpdateReview(selectedReview.id, editedReview);
+  }}
+>
 
+                        <div className="rating-input">
+                          <label>Rating:</label>
+                          <select
+                            value={editedReview.rating}
+                            onChange={(e) => setEditedReview(prev => ({
+                              ...prev,
+                              rating: Number(e.target.value)
+                            }))}
+                          >
+                            {[1, 2, 3, 4, 5].map(num => (
+                              <option key={num} value={num}>{num}</option>
+                            ))}
+                          </select>
+                        </div>
+                        <div className="review-input">
+                          <label>Review:</label>
+                          <textarea
+                            value={editedReview.review_text}
+                            onChange={(e) => setEditedReview(prev => ({
+                              ...prev,
+                              review_text: e.target.value
+                            }))}
+                            rows={5}
+                          />
+                        </div>
+                        <div className="edit-buttons">
+                          <button type="submit" className="save-button">
+                            Save Changes
+                          </button>
+                          <button 
+                            type="button" 
+                            className="cancel-button"
+                            onClick={() => {
+                              setIsEditing(false);
+                              setEditedReview(null);
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
 export default Profile;
+

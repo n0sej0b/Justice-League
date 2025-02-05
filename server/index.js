@@ -1,4 +1,4 @@
-const { client, createTables, createUser, fetchUsers, fetchUserById, fetchHeroById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
+const { client, createTables, createUser, updateReview, fetchUsers, fetchUserById, fetchHeroById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
 
 const express = require('express');
 const app = express(); 
@@ -40,7 +40,7 @@ const authenticateToken = (req, res, next) => {
 };
 
 // Review routes
-app.post('/reviews', async (req, res) => {
+app.post('/api/reviews', async (req, res) => {
   try {
     const { heroId, userId, rating, reviewText } = req.body;
 
@@ -112,6 +112,119 @@ app.get('/heroes/:heroId/reviews', async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 });
+
+app.get('/api/heroes/:heroId/reviews', async (req, res) => {
+  try {
+    const { heroId } = req.params;
+    console.log('Fetching reviews for hero:', heroId); // Debug log
+
+    const reviews = await getReviewsByHeroId(heroId);
+    console.log('Reviews found:', reviews); // Debug log
+
+    res.json(reviews);
+  } catch (error) {
+    console.error('Error fetching hero reviews:', error);
+    res.status(500).json({ 
+      message: 'Error fetching reviews',
+      error: error.message 
+    });
+  }
+});
+
+// Update review endpoint
+app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
+  try {
+    const reviewId = req.params.id;
+    const userId = req.user.id;
+    const { rating, review_text } = req.body;
+
+    console.log('Attempting to update review:', { reviewId, userId, rating, review_text });
+
+    // Input validation
+    if (!rating || !review_text) {
+      return res.status(400).json({ 
+        message: 'Rating and review text are required' 
+      });
+    }
+
+    // First verify the review exists and belongs to the user
+    const checkReview = await client.query(
+      'SELECT * FROM reviews WHERE id = $1',
+      [reviewId]
+    );
+
+    if (checkReview.rows.length === 0) {
+      return res.status(404).json({ 
+        message: 'Review not found' 
+      });
+    }
+
+    if (checkReview.rows[0].user_id !== userId) {
+      return res.status(403).json({ 
+        message: 'Not authorized to update this review' 
+      });
+    }
+
+    // Update the review
+    const updatedReview = await updateReview(reviewId, userId, {
+      rating: parseInt(rating),
+      review_text
+    });
+
+    if (!updatedReview) {
+      return res.status(404).json({ 
+        message: 'Failed to update review' 
+      });
+    }
+
+    // Get the username for the response
+    const userResult = await client.query(
+      'SELECT username FROM users WHERE id = $1',
+      [userId]
+    );
+
+    const reviewWithUser = {
+      ...updatedReview,
+      username: userResult.rows[0].username
+    };
+
+    console.log('Review updated successfully:', reviewWithUser);
+    res.json(reviewWithUser);
+
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ 
+      message: 'Failed to update review', 
+      error: error.message 
+    });
+  }
+});
+
+
+
+app.put('/api/reviews/:reviewId', authenticateToken, async (req, res) => {
+  try {
+    const { reviewId } = req.params;
+    const userId = req.user.id;
+    const { rating, review_text } = req.body;
+
+    if (!rating || !review_text) {
+      return res.status(400).json({ message: 'Rating and review text are required' });
+    }
+
+    const updatedReview = await updateReview(reviewId, userId, { rating, review_text });
+
+    if (!updatedReview) {
+      return res.status(404).json({ message: 'Review not found or unauthorized' });
+    }
+
+    res.json(updatedReview);
+  } catch (error) {
+    console.error('Error updating review:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 
 app.delete('/api/reviews/:reviewId', authenticateToken, async (req, res) => {
   try {
