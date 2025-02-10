@@ -28,16 +28,21 @@ const connect = async () => {
 const HERO_USERNAMES = [
   'Aquaman',
   'Batman',
+  'Bane',
+  'Brainiac',
+  'Canary',
+  'Darkseid',
   'Flash',
   'Greenlantern',
   'HawkGirl',
-  'Superman',
-  'WonderWoman',
+  'Joker',
+  'Lobo',
   'NightWing',
-  'Vixen',
-  'Canary',
-  'Darkseid',
   'Solomongrundy',
+  'Superman',    
+  'Vixen',
+  'WonderWoman',  
+  
 ];
 
 // In db.js
