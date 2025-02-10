@@ -13,7 +13,7 @@ const StarRating = ({ rating, onRatingChange, readOnly = false }) => {
   
 
   return (
-    <div className={`star-rating ${readOnly ? 'disabled' : ''}`}>
+    <div className={`star-rating1 ${readOnly ? 'disabled' : ''}`}>
       {[1, 2, 3, 4, 5].map((star) => (
         <span
           key={star}
@@ -35,9 +35,9 @@ const AverageRating = ({ rating }) => {
   const displayRating = isNaN(rating) ? 'No ratings yet' : rating;
   
   return (
-    <div className="average-rating">
+    <div className="average-rating1">
       {!isNaN(rating) && (
-        <span className="average-stars">
+        <span className="average-stars1">
           {[1, 2, 3, 4, 5].map((star) => (
             <span
               key={star}
@@ -48,7 +48,7 @@ const AverageRating = ({ rating }) => {
           ))}
         </span>
       )}
-      <span className="rating-number">({displayRating})</span>
+      <span className="rating-number1">({displayRating})</span>
     </div>
   );
 };
@@ -57,12 +57,15 @@ const Heroes = () => {
   const { isLoggedIn, user } = useAuth();
   const [heroes, setHeroes] = useState([]);
   const [heroReviews, setHeroReviews] = useState({});
+  const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
   const [reviewData, setReviewData] = useState({
     rating: 0,
     review: '',
     selectedHero: ''
   });
+  
+  
 
   const [expandedReviews, setExpandedReviews] = useState({});
   const [selectedReview, setSelectedReview] = useState(null);
@@ -191,12 +194,27 @@ const Heroes = () => {
   
   
     return (
-      <div className="heroes-container">
-        <h1>Heroes</h1>
+      <div className="heroes-container1">
+  <h1>Heroes</h1>
+  <div className="search-container1">
+    <input
+      type="text"
+      className="search-input1"
+      placeholder="Search heroes..."
+      value={searchTerm}
+      onChange={(e) => setSearchTerm(e.target.value)}
+    />
+  </div>
+
         
-        <div className="heroes-grid">
-          {heroes.map(hero => (
-            <div key={hero.id} className="hero-card">
+        
+        <div className="heroes-grid1">
+        {heroes
+  .filter(hero => 
+    hero.name.toLowerCase().includes(searchTerm.toLowerCase())
+  )
+  .map(hero => (
+            <div key={hero.id} className="hero-card1">
               <img 
                 src={`${API_URL}/${hero.image}`} 
                 alt={hero.name}
@@ -204,12 +222,12 @@ const Heroes = () => {
                   e.target.onerror = null;
                   e.target.src = '/default-hero.png'; 
                 }}
-                className="hero-image"
+                className="hero-image1"
               />
               <h3>{hero.name}</h3>
               <AverageRating rating={calculateAverageRating(heroReviews[hero.id])} />
   
-              <div className="reviews-section">
+              <div className="reviews-section1">
   <h4>Reviews ({Array.isArray(heroReviews[hero.id]) ? heroReviews[hero.id].length : 0})</h4>
   
   {Array.isArray(heroReviews[hero.id]) && heroReviews[hero.id].map((review, index) => {
@@ -224,7 +242,7 @@ const Heroes = () => {
   return (
     <div 
       key={review.id || index} 
-      className="review-item"
+      className="review-item1"
       onClick={() => setSelectedReview(review)}
       style={{ cursor: 'pointer' }}
     >
@@ -241,17 +259,17 @@ const Heroes = () => {
 
 {/* Review Modal */}
 {selectedReview && (
-  <div className="review-modal-overlay" onClick={() => setSelectedReview(null)}>
-    <div className="review-modal-content" onClick={e => e.stopPropagation()}>
+  <div className="review-modal-overlay1" onClick={() => setSelectedReview(null)}>
+    <div className="review-modal-content1" onClick={e => e.stopPropagation()}>
       <button 
-        className="close-modal-button"
+        className="close-modal-button1"
         onClick={() => setSelectedReview(null)}
       >
         ×
       </button>
-      <div className="modal-review-content">
+      <div className="modal-review-content1">
         <StarRating rating={Number(selectedReview.rating) || 0} readOnly />
-        <p className="review-text">{selectedReview.review}</p>
+        <p className="review-text1">{selectedReview.review}</p>
         <small>
           {selectedReview.timestamp 
             ? new Date(selectedReview.timestamp).toLocaleDateString() 
@@ -272,20 +290,20 @@ const Heroes = () => {
 
 
 
-            <div className="review-action">
+            <div className="review-action1">
               {isLoggedIn ? (
                 <button 
-                  className="review-button"
+                  className="review-button1"
                   onClick={() => handleHeroSelect(hero.name)}
                 >
                   Write a Review
                 </button>
               ) : (
-                <div className="login-prompt">
-                  <button className="review-button disabled" disabled>
+                <div className="login-prompt1">
+                  <button className="review-buttondisabled" disabled>
                     Write a Review
                   </button>
-                  <span className="login-tooltip">
+                  <span className="login-tooltip1">
                     Log in to write a review
                   </span>
                 </div>
@@ -297,10 +315,10 @@ const Heroes = () => {
 
       {/* Updated Review Modal */}
       {reviewData.selectedHero && isLoggedIn && (
-        <div className="review-modal">
-          <div className="review-form-container">
+        <div className="review-modal1">
+          <div className="review-form-container1">
             <div 
-              className="review-hero-image" 
+              className="review-hero-image1" 
               style={{ 
                 backgroundImage: `url(${API_URL}/${selectedHero?.image})`,
                 backgroundPosition: 'center',
@@ -308,32 +326,38 @@ const Heroes = () => {
                 backgroundRepeat: 'no-repeat'
               }}
             />
-      <div className="review-form-content">
+      <div className="review-form-content1">
               <h2>Review {reviewData.selectedHero}</h2>
-              <form onSubmit={handleSubmit} className="review-form">
-                <div className="form-group">
+              <form onSubmit={handleSubmit} className="review-form1">
+                <div className="form-group1">
                   <label>Rating</label>
                   <StarRating
                     rating={reviewData.rating}
                     onRatingChange={(rating) => setReviewData(prev => ({ ...prev, rating }))}
                   />
                 </div>
-                <div className="form-group">
-                  <label>Review</label>
-                  <textarea
-                    value={reviewData.review}
-                    onChange={(e) => setReviewData(prev => ({ ...prev, review: e.target.value }))}
-                    required
-                    placeholder="Write your review here..."
-                  />
-                </div>
-                <div className="form-actions">
-                  <button type="submit" className="submit-button">
+                <div className="form-group1">
+  <label>Review</label>
+  <textarea
+    value={reviewData.review}
+    onChange={(e) => setReviewData(prev => ({
+      ...prev,
+      review: e.target.value
+    }))}
+    required
+    placeholder="Write your review here..."
+  />
+</div>
+
+
+
+                <div className="form-actions1">
+                  <button type="submit" className="submit-button1">
                     Submit Review
                   </button>
                   <button 
                     type="button" 
-                    className="cancel-button"
+                    className="cancel-button1"
                     onClick={() => setReviewData(prev => ({ ...prev, selectedHero: '' }))}
                   >
                     Cancel

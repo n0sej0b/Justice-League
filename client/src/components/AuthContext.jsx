@@ -1,56 +1,57 @@
-import React, { createContext, useState, useContext, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect } from 'react';
 
 const AuthContext = createContext(null);
 
 export const AuthProvider = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    const storedUser = localStorage.getItem('user');
+    try {
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (e) {
+      console.error('Error parsing stored user:', e);
+      return null;
+    }
+  });
+
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('token');
+  });
 
   const login = (userData) => {
-    // Make sure userData includes the token
-    if (userData && userData.token) {
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('token', userData.token); // Store token separately as well
-      setUser(userData);
-      setIsLoggedIn(true);
-    }
+    console.log('Login called with:', userData);
+    
+    // Ensure we're storing the complete user object including is_hero
+    const userToStore = {
+      id: userData.id,
+      username: userData.username,
+      email: userData.email,
+      is_hero: userData.is_hero,
+      token: userData.token
+    };
+
+    // Store in localStorage
+    localStorage.setItem('user', JSON.stringify(userToStore));
+    localStorage.setItem('token', userData.token);
+    
+    // Update state
+    setUser(userToStore);
+    setIsLoggedIn(true);
+
+    console.log('Stored user data:', userToStore);
   };
 
-  const logout = useCallback(() => {
-    try {
-      // Clear localStorage
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      
-      // Reset state
-      setUser(null);
-      setIsLoggedIn(false);
-    } catch (error) {
-      console.error('Logout error:', error);
-      throw error;
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      // Check for existing user data on mount
-      const storedUser = localStorage.getItem('user');
-      const token = localStorage.getItem('token');
-      
-      if (storedUser && token) {
-        const userData = JSON.parse(storedUser);
-        setUser(userData);
-        setIsLoggedIn(true);
-      }
-    } catch (error) {
-      console.error('Auth initialization error:', error);
-      logout();
-    }
-  }, [logout]);
+  const logout = () => {
+    localStorage.removeItem('user');
+    localStorage.removeItem('token');
+    setUser(null);
+    setIsLoggedIn(false);
+  };
 
   const value = {
-    isLoggedIn,
     user,
+    setUser,
+    isLoggedIn,
+    setIsLoggedIn,
     login,
     logout
   };

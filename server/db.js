@@ -25,43 +25,41 @@ const connect = async () => {
   return client;
 };
 
+const HERO_USERNAMES = [
+  'Aquaman',
+  'Batman',
+  'Flash',
+  'Greenlantern',
+  'HawkGirl',
+  'Superman',
+  'WonderWoman',
+  'NightWing',
+  'Vixen',
+  'Canary',
+  'Darkseid',
+  'Solomongrundy',
+];
+
+// In db.js
 const deleteReview = async (reviewId, userId) => {
-  const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-
-    console.log('Deleting review with ID:', reviewId, 'for user:', userId);
-
-    // First check if the review exists and belongs to the user
-    const checkResult = await client.query(
-      'SELECT id FROM reviews WHERE id = $1 AND user_id = $2',
+    const result = await client.query(
+      'DELETE FROM reviews WHERE id = $1 AND user_id = $2 RETURNING *',
       [reviewId, userId]
     );
-
-    if (checkResult.rows.length === 0) {
-      console.log('Review not found or unauthorized');
-      await client.query('ROLLBACK');
-      return null;
-    }
-
-    // Delete the review
-    const deleteResult = await client.query(
-      'DELETE FROM reviews WHERE id = $1 AND user_id = $2 RETURNING id',
-      [reviewId, userId]
-    );
-
-    await client.query('COMMIT');
-    console.log('Review deleted successfully');
-    return deleteResult.rows[0];
-
+    return result.rows[0];
   } catch (error) {
-    await client.query('ROLLBACK');
     console.error('Error in deleteReview:', error);
     throw error;
-  } finally {
-    client.release();
   }
 };
+
+module.exports = {
+  client,
+  // ... other exports
+  deleteReview,
+};
+
 
 const updateReview = async (reviewId, userId, { rating, review_text }) => {
   try {
@@ -135,54 +133,149 @@ const deleteRequest = async (requestId, userId) => {
   }
 };
 
-const createRequestsTable = async () => {
-  const client = await connect();
+const createRequest = async (requestData) => {
   try {
-    await client.query('BEGIN');
+    const { 
+      user_id, 
+      hero_id, 
+      title, 
+      description, 
+      location, 
+      urgency, 
+      contact_info 
+    } = requestData;
 
-    // Create requests table
+    const result = await client.query(`
+      INSERT INTO requests (
+        id,
+        user_id, 
+        hero_id, 
+        title, 
+        description, 
+        location, 
+        urgency, 
+        contact_info, 
+        status
+      ) 
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `, [
+      uuid.v4(), // Generate UUID for the request
+      user_id,
+      hero_id,
+      title,
+      description,
+      location,
+      urgency,
+      contact_info,
+      'pending'
+    ]);
+
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error in createRequest:', error);
+    throw error;
+  }
+};
+
+const getUserRequests = async (userId) => {
+  try {
+    const result = await client.query(`
+      SELECT 
+        r.*,
+        h.name as hero_name
+      FROM requests r
+      LEFT JOIN heroes h ON r.hero_id = h.id
+      WHERE r.user_id = $1
+      ORDER BY r.created_at DESC
+    `, [userId]);
+    
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getUserRequests:', error);
+    throw error;
+  }
+};
+
+const getHeroRequests = async (heroName) => {
+  try {
+    console.log('Fetching requests for hero:', heroName);
+    
+    const result = await client.query(`
+      SELECT 
+        r.*,
+        u.username as requester_name,
+        h.name as hero_name,
+        h.image as hero_image
+      FROM requests r
+      JOIN users u ON r.user_id = u.id
+      JOIN heroes h ON r.hero_id = h.id
+      WHERE h.name = $1
+      ORDER BY r.created_at DESC
+    `, [heroName]);
+    
+    console.log('Found hero requests:', result.rows);
+    return result.rows;
+  } catch (error) {
+    console.error('Error in getHeroRequests:', error);
+    throw error;
+  }
+};
+
+
+
+
+const createRequestsTable = async () => {
+  try {
     await client.query(`
       CREATE TABLE IF NOT EXISTS requests (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        hero_id INTEGER REFERENCES heroes(id) ON DELETE CASCADE,
         title VARCHAR(255) NOT NULL,
-        description TEXT,
-        location VARCHAR(255),
-        status VARCHAR(50) DEFAULT 'pending',
-        urgency VARCHAR(50) DEFAULT 'normal',
+        description TEXT NOT NULL,
+        location VARCHAR(255) NOT NULL,
+        urgency VARCHAR(50) NOT NULL,
         contact_info TEXT,
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
-
-    // Create request_responses table for tracking responses to requests
-    await client.query(`
-      CREATE TABLE IF NOT EXISTS request_responses (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        request_id UUID REFERENCES requests(id) ON DELETE CASCADE,
-        hero_id UUID REFERENCES heroes(id) ON DELETE CASCADE,
-        response_text TEXT,
         status VARCHAR(50) DEFAULT 'pending',
-        created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-      )
-    `);
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        ALTER TABLE users ADD COLUMN IF NOT EXISTS is_hero BOOLEAN DEFAULT FALSE;
+        UPDATE users SET is_hero = TRUE WHERE id = 'your_user_id';
 
-    // Add indexes for better query performance
-    await client.query(`
-      CREATE INDEX IF NOT EXISTS idx_requests_user_id ON requests(user_id);
-      CREATE INDEX IF NOT EXISTS idx_requests_hero_id ON requests(hero_id);
-      CREATE INDEX IF NOT EXISTS idx_requests_status ON requests(status);
-      CREATE INDEX IF NOT EXISTS idx_request_responses_request_id ON request_responses(request_id);
-      CREATE INDEX IF NOT EXISTS idx_request_responses_hero_id ON request_responses(hero_id);
+      );
     `);
-
-    await client.query('COMMIT');
+    console.log('Requests table created successfully');
   } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Error creating requests tables:', error);
+    console.error('Error creating requests table:', error);
+    throw error;
+  }
+};
+const checkUserStatus = async (username) => {
+  try {
+    const result = await client.query(
+      'SELECT id, username, is_hero FROM users WHERE username = $1',
+      [username]
+    );
+    console.log('User status check:', result.rows[0]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error checking user status:', error);
+    throw error;
+  }
+};
+
+// Add this function to update hero status
+const updateHeroStatus = async (userId) => {
+  try {
+    const result = await client.query(
+      'UPDATE users SET is_hero = true WHERE id = $1 RETURNING *',
+      [userId]
+    );
+    console.log('Updated user status:', result.rows[0]);
+    return result.rows[0];
+  } catch (error) {
+    console.error('Error updating hero status:', error);
     throw error;
   }
 };
@@ -197,13 +290,14 @@ const createTables = async () => {
     // Drop existing tables with CASCADE to handle dependencies
     await client.query(`DROP TABLE IF EXISTS users, heroes, reviews, requests, request_responses CASCADE`);
 
-    // Create users table
+    // Create users table with is_hero field
     await client.query(`
       CREATE TABLE users(
         id UUID PRIMARY KEY,
         username VARCHAR(100) UNIQUE NOT NULL,
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(100) NOT NULL,
+        is_hero BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -436,61 +530,29 @@ const getHeroReviews = async (heroId, limit = 10, offset = 0) => {
 
 
 
-// Function to create a user
-const createUser = async ({ username, email, password }) => {
-  if (!username || !email || !password) {
-    throw new Error('Username, email, and password are required');
-  }
+const createUser = async ({ username, password, email }) => {
+  const hashedPassword = await bcrypt.hash(password, 10);
+  
+  const SQL = `
+    INSERT INTO users(id, username, password, email, is_hero) 
+    VALUES($1, $2, $3, $4, $5) 
+    RETURNING *
+  `;
+  
+  // Set is_hero to true if username is in HERO_USERNAMES
+  const isHero = HERO_USERNAMES.includes(username);
+  
+  const response = await client.query(SQL, [
+    uuid.v4(),
+    username,
+    hashedPassword,
+    email,
+    isHero
+  ]);
+  
+  return response.rows[0];
+};
 
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    throw new Error('Invalid email format');
-  }
-
-  if (username.length < 3) {
-    throw new Error('Username must be at least 3 characters long');
-  }
-
-  if (password.length < 8) {
-    throw new Error('Password must be at least 8 characters long');
-  }
-
-  const client = await connect();
-  try {
-    await client.query('BEGIN');
-
-    // Check if username or email already exists
-    const existingUser = await client.query(
-      'SELECT username, email FROM users WHERE username = $1 OR email = $2',
-      [username.toLowerCase(), email.toLowerCase()]
-    );
-
-    if (existingUser.rows.length > 0) {
-      if (existingUser.rows[0].username === username.toLowerCase()) {
-        throw new Error('Username already exists');
-      }
-      if (existingUser.rows[0].email === email.toLowerCase()) {
-        throw new Error('Email already registered');
-      }
-    }
-
-    const hashedPassword = await bcrypt.hash(password, 10);
-    const userId = uuid.v4();
-
-    const result = await client.query(
-      `INSERT INTO users(id, username, email, password) 
-       VALUES($1, $2, $3, $4) 
-       RETURNING id, username, email`,
-      [userId, username.toLowerCase(), email.toLowerCase(), hashedPassword]
-    );
-
-    await client.query('COMMIT');
-    return result.rows[0];
-  } catch (error) {
-    await client.query('ROLLBACK');
-    throw error;
-  } 
-}
 
 // Function to insert initial heroes
 const insertInitialHeroes = async () => {
@@ -514,7 +576,8 @@ const insertInitialHeroes = async () => {
       { name: 'Vixen', image: 'assets/images/Vixen.jpg' },
       { name: 'WonderWoman', image: 'assets/images/WonderWoman.jpg' }
     ];
-    console.log(heroes)
+    await ensureHeroStatus();
+
     const values = heroes.map(hero =>
       `('${uuid.v4()}', '${hero.name}', 0.00, '', '${hero.image}')`
     ).join(',');
@@ -525,19 +588,28 @@ const insertInitialHeroes = async () => {
       ON CONFLICT (name) DO NOTHING
     `);
   } catch(ex){
-    next(ex);
+    console.error('Error inserting heroes:', ex);
+    throw ex;
   }
 };
 
 
-// In db.js
 const authenticateUser = async ({ username, password }) => {
   try {
     console.log('Authenticating user:', username);
 
+    // First, ensure hero status is set correctly
+    if (HERO_USERNAMES.includes(username)) {
+      await client.query(`
+        UPDATE users 
+        SET is_hero = true 
+        WHERE username = $1
+      `, [username]);
+    }
+
     const result = await client.query(
-      'SELECT * FROM users WHERE username = $1',
-      [username.toLowerCase()]
+      'SELECT id, username, email, is_hero, password FROM users WHERE username = $1',
+      [username]
     );
 
     if (result.rows.length === 0) {
@@ -545,30 +617,54 @@ const authenticateUser = async ({ username, password }) => {
     }
 
     const user = result.rows[0];
+    console.log('Found user:', { ...user, password: '[HIDDEN]' });
+
     const isValidPassword = await bcrypt.compare(password, user.password);
 
     if (!isValidPassword) {
       throw new Error('Invalid password');
     }
 
-    // Generate token
+    // Generate token with is_hero included
     const token = jwt.sign(
       { 
         id: user.id, 
         username: user.username,
-        email: user.email 
+        email: user.email,
+        is_hero: user.is_hero
       },
       process.env.JWT_SECRET || 'secrettoken',
       { expiresIn: '24h' }
     );
 
-    // Remove password from response
+    // Remove password but keep is_hero
     const { password: _, ...userWithoutPassword } = user;
-    return { ...userWithoutPassword, token };
+    console.log('Returning user data:', userWithoutPassword);
+
+    return { 
+      ...userWithoutPassword, 
+      token,
+      is_hero: user.is_hero
+    };
 
   } catch (error) {
     console.error('Authentication error:', error);
     throw error;
+  }
+};
+
+const ensureHeroStatus = async () => {
+  try {
+    const placeholders = HERO_USERNAMES.map((_, idx) => `$${idx + 1}`).join(',');
+    await client.query(`
+      UPDATE users 
+      SET is_hero = true 
+      WHERE username IN (${placeholders})
+    `, HERO_USERNAMES);
+    
+    console.log('Hero statuses updated successfully');
+  } catch (error) {
+    console.error('Error updating hero statuses:', error);
   }
 };
 
@@ -662,6 +758,9 @@ module.exports = {
   client,
   updateReview,
   fetchUserById,
+  createRequest,
+  getUserRequests,
+  getHeroRequests,
   createTables,
   createUser,
   authenticateUser,
@@ -672,5 +771,8 @@ module.exports = {
   createReview,
   getHeroReviews,
   deleteReview,
-  deleteRequest
+  deleteRequest,
+  checkUserStatus, 
+  updateHeroStatus,
+  ensureHeroStatus,
 };

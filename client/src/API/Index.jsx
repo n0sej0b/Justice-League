@@ -256,24 +256,103 @@ export const createReview = async (reviewData) => {
   }
 };
 
-export const deleteReview = async (reviewId, token) => {
+export const getUserRequests = async () => {
   try {
-    // Validate reviewId
-    if (!reviewId) {
-      console.error('No review ID provided');
-      return;
+    const response = await fetch(`${API_URL}/api/requests`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      }
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to fetch requests');
     }
 
+    const data = await response.json();
+    console.log('Fetched user requests:', data);
+    return data;
+  } catch (error) {
+    console.error('Error fetching user requests:', error);
+    throw error;
+  }
+};
+
+// In your frontend Index.jsx file
+
+export const createRequest = async (requestData) => {
+  try {
+    console.log('Sending request data:', requestData); // Debug log
+
+    const response = await fetch(`${API_URL}/api/requests`, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify({
+        title: requestData.title,
+        description: requestData.description,
+        location: requestData.location,
+        urgency: requestData.urgency,
+        contactInfo: requestData.contactInfo,
+        hero_id: requestData.hero_id
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to create request');
+    }
+
+    const data = await response.json();
+    console.log('Created request:', data);
+    return data;
+  } catch (error) {
+    console.error('Error creating request:', error);
+    throw error;
+  }
+};
+
+
+// Update a request
+export const updateRequest = async (requestId, updateData) => {
+  try {
+    const response = await fetch(`${API_URL}/api/requests/${requestId}`, {
+      method: 'PUT',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
+      },
+      body: JSON.stringify(updateData)
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to update request');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating request:', error);
+    throw error;
+  }
+};
+
+export const getHeroRequests = async () => {
+  try {
     const token = localStorage.getItem('token');
     if (!token) {
-      console.error('No authentication token found');
-      return;
+      throw new Error('No authentication token found');
     }
 
-    console.log('Attempting to delete review:', reviewId);
-
-    const response = await fetch(`http://localhost:3000/api/reviews/${reviewId}`, {
-      method: 'DELETE',
+    const response = await fetch('http://localhost:3000/api/requests/hero', {
+      method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
@@ -281,19 +360,52 @@ export const deleteReview = async (reviewId, token) => {
     });
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to delete review');
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to fetch hero requests');
     }
 
-    // Handle successful deletion
-    console.log('Review deleted successfully');
-    // Update your UI here (e.g., remove the review from the list)
-    
+    const data = await response.json();
+    console.log('Hero requests data:', data);
+    return data;
   } catch (error) {
-    console.error('Error deleting review:', error);
-    // Handle error (show error message to user)
+    console.error('Error fetching hero requests:', error);
+    throw error;
   }
 };
+
+
+
+export const deleteReview = async (reviewId, token) => {
+  if (!reviewId) {
+    console.error('No review ID provided');
+    throw new Error('Review ID is required');
+  }
+
+  try {
+    console.log('Sending delete request for review:', reviewId);
+
+    const response = await fetch(`${API_URL}/api/reviews/${reviewId}`, { // Update URL path
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      }
+    });
+
+    console.log('Delete response status:', response.status); // Debug log
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || `Failed to delete review: ${response.statusText}`);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Delete review error:', error);
+    throw error;
+  }
+};
+
 
 
 
@@ -301,23 +413,27 @@ export const deleteReview = async (reviewId, token) => {
 
 export const deleteRequest = async (requestId) => {
   try {
-    const response = await fetch(`${API_URL}/requests/${requestId}`, {
+    const response = await fetch(`${API_URL}/api/requests/${requestId}`, { // Updated URL path
       method: 'DELETE',
       headers: {
-        'Authorization': `Bearer ${localStorage.getItem('token')}`,
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        ...getAuthHeader()
       },
     });
 
     if (!response.ok) {
-      throw new Error('Failed to delete request');
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to delete request');
     }
 
-    return true;
+    return await response.json();
   } catch (error) {
     console.error('Error deleting request:', error);
     throw error;
   }
 };
+
 
 
 export const updateReview = async (reviewId, updatedData) => {
@@ -327,7 +443,6 @@ export const updateReview = async (reviewId, updatedData) => {
       throw new Error('Authentication token not found');
     }
 
-    // Use API_URL instead of import.meta.env.VITE_API_URL directly
     const response = await fetch(`${API_URL}/api/reviews/${reviewId}`, {
       method: 'PUT',
       headers: {

@@ -1,9 +1,11 @@
 .profile-container {
-  max-width: 1200px;
+  width: 100vw;
   margin: 0 auto;
   padding: 24px;
   background-color: #f8fafc;
   min-height: 100vh;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .profile-header {
@@ -355,4 +357,97 @@
 /* Prevent body scrolling when modal is open */
 body.modal-open {
   overflow: hidden;
+}
+
+.requests-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.request-card {
+  background: white;
+  color:#334155;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.request-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.request-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.request-card p {
+  margin: 8px 0;
+}
+
+.request-card small {
+  color: #666;
+  display: block;
+  margin-top: 10px;
+}
+
+.request-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 15px;
+}
+
+.accept-btn, .reject-btn {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+.accept-btn {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.accept-btn:hover {
+  background-color: #45a049;
+}
+
+.reject-btn {
+  background-color: #f44336;
+  color: white;
+}
+
+.reject-btn:hover {
+  background-color: #da190b;
+}
+
+.request-status {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 0.9em;
+  font-weight: bold;
+  text-transform: capitalize;
+}
+
+.request-status.pending {
+  background-color: #ffd700;
+  color: #000;
+}
+
+.request-status.accepted {
+  background-color: #4CAF50;
+  color: white;
+}
+
+.request-status.rejected {
+  background-color: #f44336;
+  color: white;
 }

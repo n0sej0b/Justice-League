@@ -15,6 +15,7 @@ const Navbar = () => {
   const [error, setError] = useState(null);
   const [showLoginForm, setShowLoginForm] = useState(false);
   const loginFormRef = useRef(null);
+  const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -33,7 +34,10 @@ const Navbar = () => {
     setIsOpen(prevState => !prevState);
   };
   
-  const toggleLoginForm = () => setShowLoginForm(!showLoginForm);
+  const toggleLoginForm = () => {
+    setShowLoginForm(!showLoginForm);
+    setError(null); // Clear any previous errors
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -45,62 +49,73 @@ const Navbar = () => {
 
   const handleLogin = async (e) => {
     e.preventDefault();
-    setError('');
-  
+    setError(null); // Clear any previous errors
+    
     try {
-      // Validate inputs
-      if (!loginData.username || !loginData.password) {
-        setError('Username and password are required');
-        return;
-      }
-  
-      console.log('Attempting login with:', {
-        username: loginData.username,
-        passwordLength: loginData.password.length
-      });
-  
       const response = await fetch('http://localhost:3000/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include', // Add this if using cookies
         body: JSON.stringify({
           username: loginData.username,
-          password: loginData.password
-        })
+          password: loginData.password,
+        }),
       });
-  
+
+      console.log('Login response status:', response.status);
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+        throw new Error('Login failed');
       }
-  
+
       const data = await response.json();
-      console.log('Login successful:', { username: data.username });
-  
-      // Store user data and token
+      console.log('Login response data:', data);
+
+      // Extract user data from nested structure
+      const userData = {
+        id: data.user.id,
+        username: data.user.username,
+        email: data.user.email,
+        is_hero: data.user.is_hero,
+        token: data.token
+      };
+
+      // Validate the extracted data
+      if (!userData.id || !userData.username || userData.is_hero === undefined) {
+        console.error('Missing required user data:', userData);
+        throw new Error('Invalid user data received');
+      }
+
+      // Store token and user data
       localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data));
-  
-      // Update auth context
-      login(data);
-  
-      // Clear form
-      setLoginData({ username: '', password: '' });
-      setError('');
-  
-      // Close login form if you have this functionality
+      localStorage.setItem('user', JSON.stringify(userData));
+      
+      console.log('Stored token:', data.token);
+      console.log('Stored user:', userData);
+
+      // Call login from AuthContext
+      login(userData);
+      
+      // Reset form and close
       setShowLoginForm(false);
-  
-    } catch (err) {
-      console.error('Login error:', err);
-      setError(err.message || 'Login failed. Please try again.');
+      setLoginData({ username: '', password: '' });
+      setSuccessMessage('Login successful!');
+
+      // Navigate to profile
+      navigate(`/profile/${userData.id}`);
+
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('Invalid username or password');
     }
   };
 
+
   const handleLogout = () => {
-    logout(); // Use the logout function from context
+    logout();
+    localStorage.removeItem('token');
+    localStorage.removeItem('user');
     navigate('/');
   };
 
@@ -123,16 +138,10 @@ const Navbar = () => {
               width: '100px',
               height: '100px' 
             }} 
-            src="" 
+            src="https://cdn.freebiesupply.com/logos/large/2x/dc-logo-png-transparent.png" 
             alt="Logo" 
           />
         </Link>
-        <button 
-          className="navbar-toggle" 
-          onClick={toggleMenu}
-          aria-label="Toggle navigation"
-        >
-        </button>
       </div>
 
       <ul className={`navbar-menu ${isOpen ? 'active' : ''}`}>
@@ -164,15 +173,12 @@ const Navbar = () => {
           <Link to="/heroes" className="navbar-link">Heroes</Link>
         </li>
         <li className="navbar-item">
-          <Link to="/live-chat" className="navbar-link">Live Chat</Link>
-        </li>
-        <li className="navbar-item">
           <Link to="/requests" className="navbar-link">Requests</Link>
         </li>
         <li className="navbar-item">
           <Link to="/register" className="navbar-link">Register</Link>
         </li>
-        <li className="navbar-item login-section">
+        <li className="navbar-itemlogin-section">
           {isLoggedIn ? (
             <>
               <span>Welcome, {user?.username}</span>
@@ -188,13 +194,13 @@ const Navbar = () => {
               </button>
               {showLoginForm && (
                 <form className="login-form" onSubmit={handleLogin}>
-                 <input
-    type="text"
-    name="username"
-    value={loginData.username}
-    onChange={handleInputChange}
-    placeholder="Username"
-    required
+                  <input
+                    type="text"
+                    name="username"
+                    value={loginData.username}
+                    onChange={handleInputChange}
+                    placeholder="Username"
+                    required
                   />
                   <input
                     type="password"
@@ -208,6 +214,7 @@ const Navbar = () => {
                     Submit
                   </button>
                   {error && <div className="error-message">{error}</div>}
+                  {successMessage && <div className="success-message">{successMessage}</div>}
                 </form>
               )}
             </div>

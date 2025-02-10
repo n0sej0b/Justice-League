@@ -2,14 +2,16 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from './AuthContext';
 import './Requests.css';
-import { getHeroes } from "../API/Index";
+import { getHeroes, getUserRequests, createRequest, updateRequest, deleteRequest, getHeroRequests } from "../API/Index";
 
 const API_URL = 'http://localhost:3000';
 
 const Request = () => {
+  const { user, isLoggedIn } = useAuth();
   const [heroes, setHeroes] = useState([]);
+  const [userRequests, setUserRequests] = useState([]);
   const [error, setError] = useState(null);
-  const [selectedHeroData, setSelectedHeroData] = useState(null); // Changed name to be more clear
+  const [selectedHeroData, setSelectedHeroData] = useState(null);
 
   const [requestData, setRequestData] = useState({
     title: '',
@@ -21,19 +23,27 @@ const Request = () => {
   });
 
   useEffect(() => {
-    const fetchHeroes = async () => {
+    const fetchData = async () => {
       try {
-        const heroesData = await getHeroes();
-        console.log('Fetched heroes:', heroesData);
+        setError(null);
+        
+        // Fetch both heroes and user requests
+        const [heroesData, userRequestsData] = await Promise.all([
+          getHeroes(),
+          isLoggedIn ? getUserRequests() : Promise.resolve([])
+        ]);
+        
         setHeroes(heroesData);
+        setUserRequests(userRequestsData);
+        
       } catch (error) {
-        setError(error.message);
-        console.error('Error fetching heroes:', error);
+        setError(error.message || 'Failed to fetch data');
+        console.error('Error fetching data:', error);
       }
     };
 
-    fetchHeroes();
-  }, []);
+    fetchData();
+  }, [isLoggedIn]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -45,11 +55,46 @@ const Request = () => {
 
   const handleHeroSelect = (hero) => {
     console.log('Selected hero:', hero);
-    setSelectedHeroData(hero); // Store the entire hero object
+    setSelectedHeroData(hero);
     setRequestData(prevState => ({
       ...prevState,
       selectedHero: hero.name
     }));
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      setError(null);
+
+      const newRequest = {
+        title: requestData.title,
+        description: requestData.description,
+        location: requestData.location,
+        urgency: requestData.urgency,
+        contactInfo: requestData.contactInfo,
+        hero_id: selectedHeroData.id
+      };
+
+      const createdRequest = await createRequest(newRequest);
+      setUserRequests(prev => [...prev, createdRequest]);
+
+      // Reset form
+      setRequestData({
+        title: '',
+        description: '',
+        location: '',
+        urgency: 'normal',
+        contactInfo: '',
+        selectedHero: ''
+      });
+      setSelectedHeroData(null);
+
+      alert('Request created successfully!');
+    } catch (error) {
+      setError(error.message || 'Failed to create request');
+      console.error('Error creating request:', error);
+    }
   };
 
   const getImageUrl = (imagePath) => {
@@ -57,27 +102,13 @@ const Request = () => {
     return `${API_URL}/${imagePath}`;
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    console.log('Request submitted:', requestData);
-    // Reset form after submission
-    setRequestData({
-      title: '',
-      description: '',
-      location: '',
-      urgency: 'normal',
-      contactInfo: '',
-      selectedHero: ''
-    });
-    setSelectedHeroData(null);
-  };
-
   return (
     <div className="requests-container">
       <h1>Request Hero Assistance</h1>
       
+      {error && <div className="error-message">{error}</div>}
+
       {!requestData.selectedHero ? (
-        // Hero Selection Grid
         <div className="heroes-grid">
           {heroes.map(hero => (
             <div 
@@ -91,7 +122,6 @@ const Request = () => {
                 onError={(e) => {
                   e.target.onerror = null;
                   e.target.src = '/fallback-hero.png';
-                  console.log('Grid image failed to load:', hero.image);
                 }}
               />
               <h3>{hero.name}</h3>
@@ -99,7 +129,6 @@ const Request = () => {
           ))}
         </div>
       ) : (
-        // Request Form
         <div className="request-form-section">
           <div className="selected-hero-banner">
             {selectedHeroData && (
@@ -110,7 +139,6 @@ const Request = () => {
                   onError={(e) => {
                     e.target.onerror = null;
                     e.target.src = '/fallback-hero.png';
-                    console.log('Banner image failed to load:', selectedHeroData.image);
                   }}
                 />
                 <h2>Request Form for {selectedHeroData.name}</h2>
@@ -126,7 +154,7 @@ const Request = () => {
               </>
             )}
           </div>
-  
+
           <form onSubmit={handleSubmit} className="request-form">
             <div className="form-group">
               <label htmlFor="title">Title</label>
@@ -139,7 +167,7 @@ const Request = () => {
                 required
               />
             </div>
-  
+
             <div className="form-group">
               <label htmlFor="description">Description</label>
               <textarea
@@ -150,7 +178,7 @@ const Request = () => {
                 required
               />
             </div>
-  
+
             <div className="form-group">
               <label htmlFor="location">Location</label>
               <input
@@ -162,7 +190,7 @@ const Request = () => {
                 required
               />
             </div>
-  
+
             <div className="form-group">
               <label htmlFor="urgency">Urgency Level</label>
               <select
@@ -178,7 +206,7 @@ const Request = () => {
                 <option value="critical">Critical</option>
               </select>
             </div>
-  
+
             <div className="form-group">
               <label htmlFor="contactInfo">Contact Information</label>
               <input
@@ -190,11 +218,32 @@ const Request = () => {
                 required
               />
             </div>
-  
+
             <button type="submit" className="submit-button">
               Submit Request
             </button>
           </form>
+        </div>
+      )}
+
+      {isLoggedIn && (
+        <div className="user-requests-section">
+          <h2>Your Requests</h2>
+          {userRequests.length > 0 ? (
+            <div className="requests-grid">
+              {userRequests.map(request => (
+                <div key={request.id} className="request-card">
+                  <h3>{request.title}</h3>
+                  <p><strong>Status:</strong> {request.status}</p>
+                  <p><strong>Location:</strong> {request.location}</p>
+                  <p><strong>Description:</strong> {request.description}</p>
+                  <p><strong>Urgency:</strong> {request.urgency}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p>No requests found</p>
+          )}
         </div>
       )}
     </div>

@@ -1,9 +1,16 @@
 #root {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 2rem;
-  text-align: center;
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background-color: #222222;
 }
+
+
+
+
+
 
 @keyframes logo-spin {
   from {
@@ -19,4 +26,3 @@
     animation: logo-spin infinite 20s linear;
   }
 }
-

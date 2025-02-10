@@ -1,0 +1,281 @@
+/* Register.css */
+.register-container {
+    max-width: 450px;
+    margin: 2rem auto;
+    padding: 2rem;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    animation: fadeIn 0.5s ease;
+  }
+  
+  .register-container h1 {
+    text-align: center;
+    color: var(--primary-blue);
+    margin-bottom: 2rem;
+    font-size: 2rem;
+    font-weight: 600;
+  }
+  
+  .register-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+  
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  .form-group label {
+    font-weight: 500;
+    color: #333;
+    font-size: 0.95rem;
+  }
+  
+  .form-group input {
+    padding: 0.75rem;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: border-color 0.3s ease;
+  }
+  
+  .form-group input:focus {
+    outline: none;
+    border-color: var(--primary-blue);
+    box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+  }
+  
+  .form-group input:disabled {
+    background-color: #f5f5f5;
+    cursor: not-allowed;
+  }
+  
+  #password-requirements {
+    font-size: 0.8rem;
+    color: #666;
+    margin-top: 0.25rem;
+    line-height: 1.4;
+  }
+  
+  .submit-button {
+    background-color: var(--primary-blue);
+    color: white;
+    padding: 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.3s ease;
+    margin-top: 1rem;
+  }
+  
+  .submit-button:hover:not(:disabled) {
+    background-color: var(--light-blue);
+    transform: translateY(-1px);
+  }
+  
+  .submit-button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+  
+  .error-message {
+    background-color: #fee2e2;
+    color: #dc2626;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: shake 0.5s ease;
+  }
+  
+  .error-message::before {
+    content: '⚠️';
+  }
+  
+  /* Password strength indicator */
+  .password-strength {
+    height: 4px;
+    background: #e0e0e0;
+    border-radius: 2px;
+    margin-top: 0.5rem;
+    overflow: hidden;
+  }
+  
+  .password-strength-bar {
+    height: 100%;
+    transition: width 0.3s ease, background-color 0.3s ease;
+  }
+  
+  .strength-weak {
+    background-color: #ef4444;
+    width: 33.33%;
+  }
+  
+  .strength-medium {
+    background-color: #f59e0b;
+    width: 66.66%;
+  }
+  
+  .strength-strong {
+    background-color: #10b981;
+    width: 100%;
+  }
+  
+  /* Animations */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-5px); }
+    75% { transform: translateX(5px); }
+  }
+  
+  /* Responsive Design */
+  @media (max-width: 768px) {
+    .register-container {
+      margin: 1rem;
+      padding: 1.5rem;
+    }
+  
+    .register-container h1 {
+      font-size: 1.75rem;
+    }
+  
+    .form-group input {
+      padding: 0.7rem;
+    }
+  
+    .submit-button {
+      padding: 0.875rem;
+    }
+  }
+  
+  /* Dark mode support */
+  @media (prefers-color-scheme: dark) {
+    .register-container {
+      background: #1f2937;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+  
+    .register-container h1 {
+      color: #60a5fa;
+    }
+  
+    .form-group label {
+      color: #e5e7eb;
+    }
+  
+    .form-group input {
+      background: #374151;
+      border-color: #4b5563;
+      color: #e5e7eb;
+    }
+  
+    .form-group input:focus {
+      border-color: #60a5fa;
+      box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.1);
+    }
+  
+    .form-group input:disabled {
+      background: #374151;
+      opacity: 0.7;
+    }
+  
+    #password-requirements {
+      color: #9ca3af;
+    }
+  
+    .error-message {
+      background-color: rgba(220, 38, 38, 0.2);
+      color: #fca5a5;
+    }
+  }
+  
+  /* Custom checkbox styles */
+  .form-group input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    margin-right: 8px;
+  }
+  
+  /* Show password toggle */
+  .password-toggle {
+    position: relative;
+  }
+  
+  .password-toggle button {
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    color: #666;
+    cursor: pointer;
+    padding: 4px;
+  }
+  
+  .password-toggle button:hover {
+    color: var(--primary-blue);
+  }
+  
+  /* Loading spinner for submit button */
+  .submit-button.loading {
+    position: relative;
+    color: transparent;
+  }
+  
+  .submit-button.loading::after {
+    content: "";
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    top: 50%;
+    left: 50%;
+    margin: -10px 0 0 -10px;
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    border-top-color: white;
+    animation: spin 1s ease-in-out infinite;
+  }
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+  
+  /* Success message styles */
+  .success-message {
+    background-color: #ecfdf5;
+    color: #059669;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    animation: fadeIn 0.5s ease;
+  }
+  
+  .success-message::before {
+    content: '✓';
+  }
+  

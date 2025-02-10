@@ -1,18 +1,18 @@
-const { client, createTables, createUser, updateReview, fetchUsers, fetchUserById, fetchHeroById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
+const { client, createTables, createUser,ensureHeroStatus,getHeroRequests, updateReview, fetchUsers, fetchUserById, fetchHeroById, fetchHeroes, insertInitialHeroes, authenticateUser, createReview, getHeroReviews, deleteReview } = require('./db');
 
 const express = require('express');
 const app = express(); 
 const cors = require('cors');
-const jwt = require('jsonwebtoken'); 
-const { JWT_SECRET } = process.env; 
+const jwt = require('jsonwebtoken');  
 const bcrypt = require('bcrypt');
 const router = express.Router();
+const JWT_SECRET = 'secrettoken';
 
 // Middleware
 app.use(cors({
   origin: 'http://localhost:5173', 
   credentials: true, 
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 app.use(express.json()); 
@@ -27,17 +27,45 @@ const authenticateToken = (req, res, next) => {
   const token = authHeader && authHeader.split(' ')[1];
 
   if (!token) {
-    return res.status(401).json({ message: 'Authentication token required' });
+    return res.status(401).json({ error: 'No token provided' });
   }
 
-  try {
-    const user = jwt.verify(token, process.env.JWT_SECRET || 'secrettoken');
+  jwt.verify(token, process.env.JWT_SECRET || 'secrettoken', (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Invalid token' });
+    }
     req.user = user;
     next();
-  } catch (error) {
-    return res.status(403).json({ message: 'Invalid or expired token' });
-  }
+  });
 };
+
+app.patch('/api/requests/:id/status', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    // Validate the status
+    if (!['pending', 'accepted', 'rejected'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' });
+    }
+
+    // Update the request status
+    const result = await client.query(
+      'UPDATE requests SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
+      [status, id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Request not found' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating request status:', error);
+    res.status(500).json({ error: 'Failed to update request status' });
+  }
+});
+
 
 // Review routes
 app.post('/api/reviews', async (req, res) => {
@@ -113,6 +141,48 @@ app.get('/heroes/:heroId/reviews', async (req, res) => {
   }
 });
 
+const { checkUserStatus, updateHeroStatus } = require('./db');
+
+app.get('/api/users/:username/status', async (req, res) => {
+  try {
+    const status = await checkUserStatus(req.params.username);
+    res.json(status);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.patch('/api/users/:id/hero-status', async (req, res) => {
+  try {
+    const updated = await updateHeroStatus(req.params.id);
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// In your server.js or routes file
+app.get('/api/requests/hero', authenticateToken, async (req, res) => {
+  try {
+    console.log('Authenticated user:', req.user);
+    
+    if (!req.user.is_hero) {
+      return res.status(403).json({ error: 'User is not a hero' });
+    }
+
+    const heroRequests = await getHeroRequests(req.user.username);
+    console.log('Hero requests:', heroRequests);
+    
+    res.json(heroRequests);
+  } catch (error) {
+    console.error('Error fetching hero requests:', error);
+    res.status(500).json({ error: 'Failed to fetch hero requests' });
+  }
+});
+
+
+
+
 app.get('/api/heroes/:heroId/reviews', async (req, res) => {
   try {
     const { heroId } = req.params;
@@ -147,23 +217,13 @@ app.put('/api/reviews/:id', authenticateToken, async (req, res) => {
       });
     }
 
-    // First verify the review exists and belongs to the user
-    const checkReview = await client.query(
-      'SELECT * FROM reviews WHERE id = $1',
-      [reviewId]
-    );
-
-    if (checkReview.rows.length === 0) {
-      return res.status(404).json({ 
-        message: 'Review not found' 
-      });
-    }
-
-    if (checkReview.rows[0].user_id !== userId) {
-      return res.status(403).json({ 
-        message: 'Not authorized to update this review' 
-      });
-    }
+    const checkReview = async (reviewId, userId) => {
+      const review = await pool.query(
+        'SELECT * FROM reviews WHERE id = $1 AND user_id = $2',
+        [reviewId, userId]
+      );
+      return review.rows[0];
+    };
 
     // Update the review
     const updatedReview = await updateReview(reviewId, userId, {
@@ -226,31 +286,51 @@ app.put('/api/reviews/:reviewId', authenticateToken, async (req, res) => {
 });
 
 
-app.delete('/api/reviews/:reviewId', authenticateToken, async (req, res) => {
+app.delete('/api/reviews/:id', authenticateToken, async (req, res) => {
   try {
     const reviewId = req.params.id;
-    const userId = req.user.id; // From authenticateToken middleware
+    const userId = req.user.id;
 
-    console.log('Attempting to delete review:', { reviewId, userId });
+    console.log('Delete review request received:', {
+      reviewId,
+      userId,
+      params: req.params,
+      user: req.user
+    });
 
-    if (checkReview.rows.length === 0) {
-      return res.status(404).json({ message: 'Review not found' });
-    }
-
-    if (checkReview.rows[0].user_id !== userId) {
-      return res.status(403).json({ message: 'Not authorized to delete this review' });
-    }
-
-    // Delete the review
-    await pool.query(
-      'DELETE FROM reviews WHERE id = $1 AND user_id = $2',
+    // Check if review exists and belongs to user
+    const reviewCheck = await client.query(
+      'SELECT * FROM reviews WHERE id = $1 AND user_id = $2',
       [reviewId, userId]
     );
 
-    res.json({ message: 'Review deleted successfully' });
+    console.log('Review check result:', reviewCheck.rows); // Debug log
+
+    if (reviewCheck.rows.length === 0) {
+      return res.status(404).json({
+        message: 'Review not found or you do not have permission to delete it'
+      });
+    }
+
+    // Delete the review
+    const deleteResult = await client.query(
+      'DELETE FROM reviews WHERE id = $1 AND user_id = $2 RETURNING *',
+      [reviewId, userId]
+    );
+
+    console.log('Delete result:', deleteResult.rows); // Debug log
+
+    res.json({ 
+      message: 'Review deleted successfully',
+      deletedReview: deleteResult.rows[0]
+    });
+
   } catch (error) {
     console.error('Server error deleting review:', error);
-    res.status(500).json({ message: 'Server error while deleting review' });
+    res.status(500).json({ 
+      message: 'Server error while deleting review',
+      error: error.message 
+    });
   }
 });
 
@@ -310,49 +390,70 @@ router.get('/api/users', async (req, res) => {
 });
 
 
-// In your server's index.js or auth routes file
+
 app.post('/api/login', async (req, res) => {
   try {
-    // Log the incoming request
-    console.log('Login request received:', {
-      body: req.body,
-      headers: req.headers['content-type']
-    });
-
     const { username, password } = req.body;
+    
+    // Get user from database
+    const userResult = await client.query(
+      'SELECT * FROM users WHERE username = $1',
+      [username]
+    );
+    
+    const user = userResult.rows[0];
+    console.log('User query result:', user);
 
-    // Validate request body
-    if (!username || !password) {
-      console.log('Missing credentials:', { username: !!username, password: !!password });
-      return res.status(400).json({ 
-        message: 'Username and password are required'
-      });
+    if (!user) {
+      return res.status(401).json({ message: 'Invalid username or password' });
     }
 
-    // Attempt authentication
-    const user = await authenticateUser({ username, password });
+    // Validate password
+    const validPassword = await bcrypt.compare(password, user.password);
+    console.log('Password validation:', validPassword);
 
-    // Log successful authentication
-    console.log('User authenticated successfully:', { username: user.username });
+    if (!validPassword) {
+      return res.status(401).json({ message: 'Invalid username or password' });
+    }
 
-    // Send response
-    res.json({
+    // Create token using the defined JWT_SECRET
+    const token = jwt.sign(
+      { 
+        id: user.id, 
+        username: user.username,
+        is_hero: user.is_hero 
+      }, 
+      JWT_SECRET,  // Use the constant we defined at the top
+      { expiresIn: '24h' }
+    );
+
+    // Remove password from user object before sending
+    const safeUser = {
       id: user.id,
       username: user.username,
       email: user.email,
-      token: user.token
+      is_hero: user.is_hero,
+      created_at: user.created_at
+    };
+
+    // Send response
+    res.json({
+      message: 'Login successful',
+      token: token,
+      user: safeUser
     });
 
   } catch (error) {
     console.error('Login error:', error);
-    
-    if (error.message === 'User not found' || error.message === 'Invalid password') {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-    
-    res.status(500).json({ message: 'Internal server error' });
+    res.status(500).json({ message: 'Server error during login' });
   }
 });
+
+
+
+
+
+
 
 
 
@@ -395,6 +496,241 @@ app.get('/heroes', async (req, res) => {
   }
 });
 
+app.get('/api/requests', authenticateToken, async (req, res) => {
+  try {
+    // Log the authenticated user
+    console.log('Authenticated user:', req.user);
+
+    const result = await client.query(`
+      SELECT 
+        r.*,
+        h.name as hero_name,
+        h.image as hero_image
+      FROM requests r
+      LEFT JOIN heroes h ON r.hero_id = h.id
+      WHERE r.user_id = $1
+      ORDER BY r.created_at DESC
+    `, [req.user.id]);
+
+    console.log('Fetched requests:', result.rows); // Debug log
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ 
+      message: 'Internal server error',
+      error: error.message 
+    });
+  }
+});
+
+app.post('/api/requests', authenticateToken, async (req, res) => {
+  try {
+    const { title, description, location, urgency, contactInfo, hero_id } = req.body;
+    const user_id = req.user.id;
+
+    console.log('Creating request:', { 
+      user_id, 
+      hero_id, 
+      title, 
+      description, 
+      location, 
+      urgency, 
+      contactInfo 
+    });
+
+    const result = await client.query(`
+      INSERT INTO requests (
+        user_id,
+        hero_id,
+        title,
+        description,
+        location,
+        urgency,
+        contact_info,
+        status,
+        created_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
+      RETURNING *
+    `, [
+      user_id,
+      hero_id,
+      title,
+      description,
+      location,
+      urgency,
+      contactInfo,
+      'pending'
+    ]);
+
+    console.log('Created request:', result.rows[0]); // Debug log
+    res.status(201).json(result.rows[0]);
+  } catch (error) {
+    console.error('Database error:', error);
+    res.status(500).json({ 
+      message: 'Internal server error',
+      error: error.message 
+    });
+  }
+});
+
+app.get('/api/users/:id', authenticateToken, async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT 
+        u.id,
+        u.username,
+        u.email,
+        u.is_hero,
+        u.created_at,
+        COALESCE(
+          (
+            SELECT json_agg(
+              json_build_object(
+                'id', r.id,
+                'rating', r.rating,
+                'review_text', r.review_text,
+                'created_at', r.created_at,
+                'user_id', r.user_id
+              )
+            )
+            FROM reviews r 
+            WHERE r.user_id = u.id
+          ),
+          '[]'::json
+        ) as "Reviews"
+      FROM users u
+      WHERE u.id = $1
+    `, [req.params.id]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    console.log('User profile found:', result.rows[0]);
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
+
+// Update a request
+app.put('/api/requests/:id', authenticateToken, async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const userId = req.user.id;
+    const { title, description, location, urgency, contact_info, status } = req.body;
+
+    const result = await client.query(
+      `UPDATE requests 
+       SET title = $1, description = $2, location = $3, 
+           urgency = $4, contact_info = $5, status = $6, 
+           updated_at = NOW()
+       WHERE id = $7 AND user_id = $8
+       RETURNING *`,
+      [title, description, location, urgency, contact_info, status, requestId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Request not found or unauthorized' });
+    }
+
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating request:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// Delete a request
+app.delete('/api/requests/:id', authenticateToken, async (req, res) => {
+  try {
+    const requestId = req.params.id;
+    const userId = req.user.id;
+
+    const result = await client.query(
+      'DELETE FROM requests WHERE id = $1 AND user_id = $2 RETURNING *',
+      [requestId, userId]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'Request not found or unauthorized' });
+    }
+
+    res.json({ message: 'Request deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting request:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+app.get('/api/users/:id/status', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await client.query(
+      'SELECT id, username, is_hero FROM users WHERE id = $1',
+      [id]
+    );
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error checking user status:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+app.patch('/api/users/:id/make-hero', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await client.query(
+      'UPDATE users SET is_hero = true WHERE id = $1 RETURNING *',
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.json({ 
+      message: 'User updated successfully', 
+      user: result.rows[0] 
+    });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+
+
+
+
+app.get('/api/heroes/:heroId/requests', authenticateToken, async (req, res) => {
+  try {
+    const result = await client.query(`
+      SELECT 
+        r.*,
+        u.username,
+        u.email
+      FROM requests r
+      JOIN users u ON r.user_id = u.id
+      WHERE r.hero_id = $1
+      ORDER BY r.created_at DESC
+    `, [req.params.heroId]);
+
+    console.log('Hero requests:', result.rows);
+    res.json(result.rows);
+  } catch (error) {
+    console.error('Error fetching hero requests:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+
 
 
 app.use('/', router);
@@ -404,21 +740,21 @@ const seed = async () => {
       await createTables();
     console.log('tables created');
     await Promise.all([
-        createUser({ username: 'superman', password: 'krypto1234', email: 'clarkkent@wayne.com' }),
-        createUser({ username: 'joker', password: 'harley1234', email: 'harley@wayne.com' }),
-        createUser({ username: 'vixen', password: 'claws1234', email: 'vixen@wayne.com' }),
-        createUser({ username: 'nightwing', password: 'dick1234', email: 'dick@wayne.com' }),
-        createUser({ username: 'lobo', password: 'power1234', email: 'lobo@wayne.com' }),
-        createUser({ username: 'hawkgirl', password: 'hawktua1234', email: 'hawkgirl@wayne.com' }),
-        createUser({ username: 'bane', password: 'venom1234', email: 'bane@wayne.com' }),
-        createUser({ username: 'canary', password: 'decibel1234', email: 'canary@wayne.com' }),
-        createUser({ username: 'aquaman', password: 'fishie1234', email: 'gayfish@wayne.com' }),
-        createUser({ username: 'flash', password: 'reverse1234', email: 'flash@wayne.com' }),
-        createUser({ username: 'greenlantern', password: 'yellow1234', email: 'greenlantern@wayne.com' }),
-        createUser({ username: 'batman', password: 'mommyissues', email: 'bruce@wayne.com' }),
-        createUser({ username: 'wonderwoman', password: 'island1234', email: 'diana@wayne.com' }),
-        createUser({ username: 'darkseid', password: 'eyelazers1234', email: 'badguy@wayne.com' }),
-        createUser({ username: 'solomongrundy', password: 'bornonmonday', email: 'coldhands@wayne.com' }),
+        createUser({ username: 'Superman', password: 'krypto1234', email: 'clarkkent@wayne.com' }),
+        createUser({ username: 'Joker', password: 'harley1234', email: 'harley@wayne.com' }),
+        createUser({ username: 'Vixen', password: 'claws1234', email: 'vixen@wayne.com' }),
+        createUser({ username: 'Nightwing', password: 'dick1234', email: 'dick@wayne.com' }),
+        createUser({ username: 'Lobo', password: 'power1234', email: 'lobo@wayne.com' }),
+        createUser({ username: 'Hawkgirl', password: 'hawktua1234', email: 'hawkgirl@wayne.com' }),
+        createUser({ username: 'Bane', password: 'venom1234', email: 'bane@wayne.com' }),
+        createUser({ username: 'Canary', password: 'decibel1234', email: 'canary@wayne.com' }),
+        createUser({ username: 'Aquaman', password: 'fishie1234', email: 'gayfish@wayne.com' }),
+        createUser({ username: 'Flash', password: 'reverse1234', email: 'flash@wayne.com' }),
+        createUser({ username: 'Greenlantern', password: 'yellow1234', email: 'greenlantern@wayne.com' }),
+        createUser({ username: 'Batman', password: 'mommyissues', email: 'bruce@wayne.com' }),
+        createUser({ username: 'Wonderwoman', password: 'island1234', email: 'diana@wayne.com' }),
+        createUser({ username: 'Darkseid', password: 'eyelazers1234', email: 'badguy@wayne.com' }),
+        createUser({ username: 'Solomongrundy', password: 'bornonmonday', email: 'coldhands@wayne.com' }),
     ]);
   
     

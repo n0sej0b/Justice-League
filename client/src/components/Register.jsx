@@ -1,6 +1,7 @@
 import { useState } from "react"; // Removed unused useEffect
 import { useNavigate } from "react-router-dom";
 import { createUser } from "../API/Index";
+import './Register.css';
 
 function Register() {
   const [error, setError] = useState(null);
