@@ -1,0 +1,27 @@
+/* StarRating.css */
+.star-rating {
+    display: inline-flex;
+    gap: 4px;
+  }
+  
+  .star {
+    font-size: 24px;
+    cursor: pointer;
+    color: #ddd;
+    transition: color 0.2s ease;
+  }
+  
+  .star:hover:not(.readonly),
+  .star.filled {
+    color: #ffd700;
+  }
+  
+  .star.readonly {
+    cursor: default;
+  }
+  
+  /* Optional: Style stars before the hovered one */
+  .star:hover:not(.readonly) ~ .star {
+    color: #ddd;
+  }
+  

@@ -173,8 +173,22 @@ const Navbar = () => {
           <Link to="/heroes" className="navbar-link">Heroes</Link>
         </li>
         <li className="navbar-item">
-          <Link to="/requests" className="navbar-link">Requests</Link>
-        </li>
+  {isLoggedIn ? (
+    <Link to="/requests" className="navbar-link">Requests</Link>
+  ) : (
+    <div className="login-prompt-container">
+      <div 
+        className="navbar-link" 
+        onClick={() => setShowLoginForm(true)}
+      >
+        Requests
+      </div>
+      <div className="login-required-message">
+        Please log in to view requests
+      </div>
+    </div>
+  )}
+</li>
         <li className="navbar-item">
           <Link to="/register" className="navbar-link">Register</Link>
         </li>

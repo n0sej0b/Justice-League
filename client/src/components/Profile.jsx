@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { getUserProfile, deleteReview, deleteRequest, updateReview, getUserRequests, getHeroRequests } from '../API/Index';
 import { useAuth } from './AuthContext';
+import StarRating from './StarRating';
 import './Profile.css';
 
 const API_URL = 'http://localhost:3000'; 
@@ -18,6 +19,16 @@ const Profile = () => {
   const [incomingRequests, setIncomingRequests] = useState([]);
   const [userRequests, setUserRequests] = useState([]);
   const [heroRequests, setHeroRequests] = useState([]);
+  const [editingReview, setEditingReview] = useState(null);
+const [editingRequest, setEditingRequest] = useState(null);
+const [editedReviewData, setEditedReviewData] = useState({ rating: 0, review_text: '' });
+const [editedRequestData, setEditedRequestData] = useState({
+  title: '',
+  description: '',
+  location: '',
+  urgency: ''
+});
+
 
   // 2. All router and context hooks
   const { id } = useParams();
@@ -95,6 +106,82 @@ const Profile = () => {
       fetchRequests();
     }
   }, [user]);
+
+  const handleEditReview = (review) => {
+    setEditingReview(review);
+    setEditedReviewData({
+      rating: review.rating,
+      review_text: review.review_text
+    });
+  };
+  
+  const handleSaveReview = async (reviewId) => {
+    try {
+      await updateReview(reviewId, editedReviewData);
+      
+      setProfile(prevProfile => ({
+        ...prevProfile,
+        Reviews: prevProfile.Reviews.map(review =>
+          review.id === reviewId 
+            ? { ...review, ...editedReviewData }
+            : review
+        )
+      }));
+  
+      setEditingReview(null);
+      setEditedReviewData({ rating: 0, review_text: '' });
+      setSuccess('Review updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      setError('Failed to update review');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+  
+  const handleEditRequest = (request) => {
+    setEditingRequest(request);
+    setEditedRequestData({
+      title: request.title,
+      description: request.description,
+      location: request.location,
+      urgency: request.urgency
+    });
+  };
+  
+  const handleSaveRequest = async (requestId) => {
+    try {
+      const response = await fetch(`${API_URL}/api/requests/${requestId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(editedRequestData)
+      });
+  
+      if (!response.ok) {
+        throw new Error('Failed to update request');
+      }
+  
+      setProfile(prevProfile => ({
+        ...prevProfile,
+        sentRequests: prevProfile.sentRequests.map(request =>
+          request.id === requestId 
+            ? { ...request, ...editedRequestData }
+            : request
+        )
+      }));
+  
+      setEditingRequest(null);
+      setEditedRequestData({ title: '', description: '', location: '', urgency: '' });
+      setSuccess('Request updated successfully');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error) {
+      setError('Failed to update request');
+      setTimeout(() => setError(null), 3000);
+    }
+  };
+  
 
   // 4. Handler functions
   const handleUpdateRequestStatus = async (requestId, newStatus) => {
@@ -283,69 +370,185 @@ const Profile = () => {
       </div>
 
       <div className="tab-content">
-        {activeTab === 'reviews' && (
-          <div className="reviews-section">
-            <h2>Reviews</h2>
-            {profile.Reviews?.length > 0 ? (
-              <div className="reviews-grid">
-                {profile.Reviews.map(review => (
-                  <div key={review.id} className="review-card">
-                    <div className="review-header">
-                      <h3>Hero Review</h3>
-                      {isLoggedIn && user && user.id === review.user_id && (
-                        <button
-                          className="delete-btn"
-                          onClick={() => handleDeleteReview(review.id)}
-                          title="Delete Review"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    <div className="rating">Rating: {review.rating}/5</div>
-                    <p>{review.review_text}</p>
-                    <small>Posted on: {new Date(review.created_at).toLocaleDateString()}</small>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p>No reviews yet</p>
-            )}
-          </div>
-        )}
 
-        {activeTab === 'sent-requests' && (
-          <div className="requests-section">
-            <h2>Sent Requests</h2>
-            {profile.sentRequests?.length > 0 ? (
-              <div className="requests-grid">
-                {profile.sentRequests.map(request => (
-                  <div key={request.id} className="request-card">
-                    <div className="request-header">
-                      <h3>{request.title}</h3>
-                      {isLoggedIn && user && user.id === request.user_id && (
-                        <button
-                          className="delete-btn"
-                          onClick={() => handleDeleteRequest(request.id)}
-                          title="Delete Request"
-                        >
-                          ×
-                        </button>
-                      )}
-                    </div>
-                    <p><strong>Status:</strong> {request.status}</p>
-                    <p><strong>Location:</strong> {request.location}</p>
-                    <p><strong>Description:</strong> {request.description}</p>
-                    <p><strong>Urgency:</strong> {request.urgency}</p>
-                    <small>Requested on: {new Date(request.created_at).toLocaleDateString()}</small>
-                  </div>
-                ))}
+        {activeTab === 'reviews' && (
+  <div className="reviews-section">
+    <h2>Reviews</h2>
+    {profile.Reviews?.length > 0 ? (
+      <div className="reviews-grid">
+        {profile.Reviews.map(review => (
+          <div key={review.id} className="review-card">
+            <div className="review-header">
+              <h3>Hero Review</h3>
+              {isLoggedIn && user && user.id === review.user_id && (
+                <div className="review-actions">
+                  {editingReview?.id === review.id ? (
+                    <button
+                      className="save-btn"
+                      onClick={() => handleSaveReview(review.id)}
+                    >
+                      Save
+                    </button>
+                  ) : (
+                    <button
+                      className="edit-btn"
+                      onClick={() => handleEditReview(review)}
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDeleteReview(review.id)}
+                    title="Delete Review"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            {editingReview?.id === review.id ? (
+              <div className="edit-review-form">
+                <StarRating
+                  rating={editedReviewData.rating}
+                  onRatingChange={(rating) => 
+                    setEditedReviewData(prev => ({ ...prev, rating }))
+                  }
+                />
+                <textarea
+                  value={editedReviewData.review_text}
+                  onChange={(e) => 
+                    setEditedReviewData(prev => ({ 
+                      ...prev, 
+                      review_text: e.target.value 
+                    }))
+                  }
+                  className="edit-review-textarea"
+                />
               </div>
             ) : (
-              <p>No sent requests</p>
+              <>
+                <div className="rating">Rating: {review.rating}/5</div>
+                <p>{review.review_text}</p>
+              </>
             )}
+            <small>Posted on: {new Date(review.created_at).toLocaleDateString()}</small>
           </div>
-        )}
+        ))}
+      </div>
+    ) : (
+      <p>No reviews yet</p>
+    )}
+  </div>
+)}
+
+{activeTab === 'sent-requests' && (
+  <div className="requests-section">
+    <h2>Sent Requests</h2>
+    {profile.sentRequests?.length > 0 ? (
+      <div className="requests-grid">
+        {profile.sentRequests.map(request => (
+          <div key={request.id} className="request-card">
+            <div className="request-header">
+              {editingRequest?.id === request.id ? (
+                <input
+                  type="text"
+                  value={editedRequestData.title}
+                  onChange={(e) => 
+                    setEditedRequestData(prev => ({ 
+                      ...prev, 
+                      title: e.target.value 
+                    }))
+                  }
+                  className="edit-request-input"
+                />
+              ) : (
+                <h3>{request.title}</h3>
+              )}
+              {isLoggedIn && user && user.id === request.user_id && (
+                <div className="request-actions">
+                  {editingRequest?.id === request.id ? (
+                    <button
+                      className="save-btn"
+                      onClick={() => handleSaveRequest(request.id)}
+                    >
+                      Save
+                    </button>
+                  ) : (
+                    <button
+                      className="edit-btn"
+                      onClick={() => handleEditRequest(request)}
+                    >
+                      Edit
+                    </button>
+                  )}
+                  <button
+                    className="delete-btn"
+                    onClick={() => handleDeleteRequest(request.id)}
+                    title="Delete Request"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
+            </div>
+            {editingRequest?.id === request.id ? (
+              <div className="edit-request-form">
+                <input
+                  type="text"
+                  value={editedRequestData.location}
+                  onChange={(e) => 
+                    setEditedRequestData(prev => ({ 
+                      ...prev, 
+                      location: e.target.value 
+                    }))
+                  }
+                  placeholder="Location"
+                  className="edit-request-input"
+                />
+                <textarea
+                  value={editedRequestData.description}
+                  onChange={(e) => 
+                    setEditedRequestData(prev => ({ 
+                      ...prev, 
+                      description: e.target.value 
+                    }))
+                  }
+                  placeholder="Description"
+                  className="edit-request-textarea"
+                />
+                <select
+                  value={editedRequestData.urgency}
+                  onChange={(e) => 
+                    setEditedRequestData(prev => ({ 
+                      ...prev, 
+                      urgency: e.target.value 
+                    }))
+                  }
+                  className="edit-request-select"
+                >
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </div>
+            ) : (
+              <>
+                <p><strong>Status:</strong> {request.status}</p>
+                <p><strong>Location:</strong> {request.location}</p>
+                <p><strong>Description:</strong> {request.description}</p>
+                <p><strong>Urgency:</strong> {request.urgency}</p>
+              </>
+            )}
+            <small>Requested on: {new Date(request.created_at).toLocaleDateString()}</small>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p>No sent requests</p>
+    )}
+  </div>
+)}
 
         {activeTab === 'incoming-requests' && profile.is_hero && (
           <div className="requests-section">
