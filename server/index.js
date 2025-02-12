@@ -18,7 +18,7 @@ app.use(cors({
 app.use(express.json()); 
 
 const path = require('path');
-app.use('/', express.static(path.join(__dirname, '../client/dist')));
+app.use(express.static(path.join(__dirname, '../client/dist')));
 app.use('/assets/images', express.static(path.join(__dirname, './assets/images'))); 
 
 // Authentication middleware
@@ -730,10 +730,9 @@ app.get('/api/heroes/:heroId/requests', authenticateToken, async (req, res) => {
   }
 });
 
-
-
-
-app.use('/', router);
+app.get('*', (req, res) => {
+  res.sendFile(path.join(__dirname, '../client/dist', 'index.html'));
+});
 
 
 const seed = async () => {
