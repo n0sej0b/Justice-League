@@ -4,7 +4,7 @@ import { useAuth } from './AuthContext';
 import './Requests.css';
 import { getHeroes, getUserRequests, createRequest, updateRequest, deleteRequest, getHeroRequests } from "../API/Index";
 
-const API_URL = 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 const Request = () => {
   const { user, isLoggedIn } = useAuth();
