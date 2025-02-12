@@ -4,6 +4,8 @@ import { fetchUsers } from "../API/Index";
 import { useAuth } from './AuthContext';
 import './Navbar.css';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const { isLoggedIn, user, login, logout } = useAuth();
@@ -52,7 +54,7 @@ const Navbar = () => {
     setError(null); // Clear any previous errors
     
     try {
-      const response = await fetch('http://localhost:3000/api/login', {
+      const response = await fetch(`${API_URL}/api/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
