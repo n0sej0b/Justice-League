@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start:dev": "nodemon server/index.js",
-    "build": "cd client && npm run i && npm run build"
+    "build": "cd client && npm i && npm run build"
   },
   "keywords": [],
   "author": "",
