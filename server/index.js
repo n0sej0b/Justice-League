@@ -423,7 +423,7 @@ app.post('/api/login', async (req, res) => {
         username: user.username,
         is_hero: user.is_hero 
       }, 
-      JWT_SECRET,  // Use the constant we defined at the top
+      process.env.JWT_SECRET || JWT_SECRET,  
       { expiresIn: '24h' }
     );
 
