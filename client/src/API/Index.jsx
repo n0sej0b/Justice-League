@@ -351,7 +351,7 @@ export const getHeroRequests = async () => {
       throw new Error('No authentication token found');
     }
 
-    const response = await fetch('http://localhost:3000/api/requests/hero', {
+    const response = await fetch(`${API_URL}/api/requests/hero`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
