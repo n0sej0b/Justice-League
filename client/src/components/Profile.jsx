@@ -186,7 +186,7 @@ const [editedRequestData, setEditedRequestData] = useState({
   // 4. Handler functions
   const handleUpdateRequestStatus = async (requestId, newStatus) => {
     try {
-      const response = await fetch(`http://localhost:3000/api/requests/${requestId}/status`, {
+      const response = await fetch(`${API_URL}/api/requests/${requestId}/status`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
