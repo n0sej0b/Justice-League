@@ -1,11 +1,12 @@
 const pg = require('pg');
-const client = new pg.Client({
+const dbConnection = process.env.DATABASE_URL || {
   user: 'postgres',
   password: '',
   host: 'localhost',
   port: 5432,
   database: 'justice_league_reviews_db',
-});
+}
+const client = new pg.Client(dbConnection);
 
 const uuid = require('uuid');
 const bcrypt = require('bcrypt');
